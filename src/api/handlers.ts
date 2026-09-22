@@ -71,4 +71,4 @@ export const SystemHandlers = HttpApiBuilder.group(
   }),
 );
 
-export const ApiHandlers = Layer.mergeAll(InflationHandlers, BondsHandlers, SystemHandlers);
+export const ApiHandlers = Layer.mergeAll(BondsHandlers, InflationHandlers, SystemHandlers);

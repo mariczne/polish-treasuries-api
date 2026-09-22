@@ -138,8 +138,8 @@ const tidyComponentNames = (spec: Record<string, unknown>): Record<string, unkno
 };
 
 export class Api extends HttpApi.make("polish-treasuries")
-  .add(InflationApi)
   .add(BondsApi)
+  .add(InflationApi)
   .add(SystemApi)
   .annotateMerge(
     OpenApi.annotations({
