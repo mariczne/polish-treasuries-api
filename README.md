@@ -43,4 +43,5 @@ docker build -t polish-treasuries-api . && docker run -p 3000:3000 -v treasuries
 then on that interval, kept in `DATA_DIR/latest` and `previous`. On first boot the service loads
 `fixtures/`.
 
-The data is public sector information from the Ministry of Finance, reproduced unchanged.
+Code: [ISC](LICENSE). The data is public sector information from the Ministry of Finance,
+reproduced unchanged.

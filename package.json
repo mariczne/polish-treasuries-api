@@ -2,6 +2,7 @@
   "name": "polish-treasuries-api",
   "version": "0.1.0",
   "private": true,
+  "license": "ISC",
   "type": "module",
   "scripts": {
     "prepare": "effect-tsgo patch && lefthook install",
