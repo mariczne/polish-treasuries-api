@@ -1,8 +1,5 @@
-import * as NodeRuntime from "@effect/platform-node/NodeRuntime";
-import { Effect } from "effect";
-import { greet } from "./greet.ts";
+import { NodeRuntime } from "@effect/platform-node";
+import { Layer } from "effect";
+import { Server } from "./server.ts";
 
-greet("world").pipe(
-  Effect.flatMap((message) => Effect.log(message)),
-  NodeRuntime.runMain,
-);
+Layer.launch(Server).pipe(NodeRuntime.runMain);

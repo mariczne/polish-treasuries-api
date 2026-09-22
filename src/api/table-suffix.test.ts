@@ -1,0 +1,78 @@
+import { describe, expect, it } from "@effect/vitest";
+import { Effect, Layer, Schema } from "effect";
+import { HttpRouter, HttpServer } from "effect/unstable/http";
+import { Routes } from "../server.ts";
+import { TestServices } from "../test-services.ts";
+import { TableSuffix } from "./table-suffix.ts";
+
+const app = Layer.mergeAll(Routes, TableSuffix).pipe(
+  Layer.provide(HttpServer.layerServices),
+  Layer.provideMerge(TestServices),
+);
+
+const fetchText = (path: string) =>
+  Effect.acquireUseRelease(
+    Effect.sync(() => HttpRouter.toWebHandler(app, { disableLogger: true })),
+    ({ handler }) =>
+      Effect.gen(function* () {
+        const response = yield* Effect.promise(() =>
+          handler(new Request(`http://localhost${path}`)),
+        );
+        const text = yield* Effect.promise(() => response.text());
+        return { status: response.status, type: response.headers.get("content-type"), text };
+      }),
+    ({ dispose }) => Effect.promise(dispose),
+  );
+
+describe("table suffix", () => {
+  it.live("any JSON endpoint answers as CSV or TSV", () =>
+    Effect.gen(function* () {
+      const csv = yield* fetchText("/inflation.csv");
+      expect(csv.status).toBe(200);
+      expect(csv.type).toContain("text/csv");
+      expect(csv.text.split("\r\n").slice(0, 2)).toEqual([
+        "month,rate,referenceIndex",
+        "2003-07,-0.004,99.6",
+      ]);
+
+      const tsv = yield* fetchText("/bonds/by-type/EDO.tsv");
+      expect(tsv.type).toContain("text/tab-separated-values");
+      const [header, first] = tsv.text.split("\r\n");
+      expect(header?.split("\t")).toContain("coupon.rates.10.rate");
+      expect(first?.startsWith("savings\tEDO1014\tEDO\t")).toBe(true);
+
+      const one = yield* fetchText("/bonds/EDO0734.csv");
+      expect(one.text.split("\r\n")).toHaveLength(3);
+
+      const month = yield* fetchText("/inflation/2026-08.csv");
+      expect(month.text).toBe("month,rate,referenceIndex\r\n2026-08,0.003,215.26519\r\n");
+    }),
+  );
+
+  it.live("errors and JSON stay as they are", () =>
+    Effect.gen(function* () {
+      const missing = yield* fetchText("/bonds/EDO9999.csv");
+      expect(missing.status).toBe(404);
+      expect(missing.text).toBe("");
+
+      const json = yield* fetchText("/inflation/2026-08");
+      expect(json.type).toContain("json");
+      expect(json.text.startsWith("[{")).toBe(true);
+
+      const doc = yield* fetchText("/openapi.json");
+      const Spec = Schema.fromJsonString(
+        Schema.Struct({
+          paths: Schema.Record(Schema.String, Schema.Unknown),
+          components: Schema.Struct({ schemas: Schema.Record(Schema.String, Schema.Unknown) }),
+        }),
+      );
+      const spec = yield* Schema.decodeEffect(Spec)(doc.text);
+      const paths = Object.keys(spec.paths);
+      expect(paths.some((p) => p.endsWith(".csv") || p.endsWith(".tsv"))).toBe(false);
+      const schemas = Object.keys(spec.components.schemas);
+      expect(schemas.some((name) => name.endsWith("Encoded") || name.includes("effect_"))).toBe(
+        false,
+      );
+    }),
+  );
+});

@@ -7,3 +7,6 @@ coverage/
 .env.*
 !.env.example
 .DS_Store
+
+# runtime downloads (fixtures/ holds the checked-in copies)
+data/
