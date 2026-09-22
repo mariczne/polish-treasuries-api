@@ -1,0 +1,19 @@
+pre-commit:
+  parallel: false
+  piped: true
+  commands:
+    fmt:
+      priority: 1
+      run: pnpm run fmt --no-error-on-unmatched-pattern -- {staged_files}
+      stage_fixed: true
+    lint:
+      priority: 2
+      glob: "*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}"
+      run: pnpm run lint -- {staged_files}
+      stage_fixed: true
+    typecheck:
+      priority: 3
+      run: pnpm run typecheck
+    test:
+      priority: 4
+      run: pnpm run test

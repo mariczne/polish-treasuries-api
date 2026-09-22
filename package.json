@@ -1,0 +1,39 @@
+{
+  "name": "polish-treasuries-api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "prepare": "effect-tsgo patch && lefthook install",
+    "dev": "nub watch src/index.ts",
+    "start": "nub src/index.ts",
+    "fmt": "oxfmt",
+    "fmt:check": "oxfmt --check",
+    "lint": "oxlint --type-aware --fix --max-warnings=0",
+    "lint:check": "oxlint --type-aware --max-warnings=0",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "check": "pnpm run fmt:check && pnpm run lint:check && pnpm run typecheck && pnpm run test"
+  },
+  "dependencies": {
+    "@effect/platform-node": "4.0.0-rc.117",
+    "effect": "4.0.0-rc.117"
+  },
+  "devDependencies": {
+    "@effect/tsgo": "0.45.0",
+    "@effect/vitest": "4.0.0-rc.117",
+    "@types/node": "24.13.6",
+    "lefthook": "2.1.14",
+    "oxfmt": "0.70.0",
+    "oxlint": "1.85.0",
+    "oxlint-tsgolint": "7.0.2002",
+    "typescript": "7.0.2",
+    "vite": "8.3.0",
+    "vitest": "5.0.1"
+  },
+  "engines": {
+    "node": ">=24.21.0"
+  },
+  "packageManager": "pnpm@12.5.1"
+}
