@@ -19,7 +19,6 @@ export const FILES = {
 } as const;
 export type MinistryFile = (typeof FILES)[keyof typeof FILES];
 
-/** gov.pl refuses requests without a browser-like agent. */
 const USER_AGENT = "Mozilla/5.0 (compatible; polish-treasuries-api)";
 const TIMEOUT = "10 seconds";
 

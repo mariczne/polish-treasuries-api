@@ -4,7 +4,7 @@ import * as XLSX from "xlsx";
 /**
  * The only module that knows SheetJS exists. A Workbook is a set of named Sheets; a Sheet is rows
  * of Cells; a Table reads a Sheet by its header text so that a column moving does not matter and
- * a column vanishing or appearing fails loudly.
+ * a column vanishing fails loudly. Columns no schema asks for are ignored.
  */
 
 /** A raw cell: text, a number (Excel serials for dates), or blank. `"-"` and `""` are blank. */

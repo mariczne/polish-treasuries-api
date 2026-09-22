@@ -40,7 +40,6 @@ export class FileStatus extends Schema.Class<FileStatus>("FileStatus")({
   /** Where the served copy came from: the last successful download, or a file loaded at start. */
   source: Schema.Literals(["download", "disk", "fixture"]),
   loadedAt: Schema.String,
-  /** The last download attempt since start, if any. */
   lastAttemptAt: Schema.NullOr(Schema.String),
   lastAttempt: Schema.NullOr(Schema.Literals(["stored", "unchanged", "failed"])),
   message: Schema.NullOr(Schema.String),
@@ -60,7 +59,6 @@ const parsers: Record<MinistryFile["name"], (bytes: Uint8Array) => Effect.Effect
       ),
   };
 
-/** The status with the outcome of a download attempt, everything else kept. */
 const attempted = (
   status: FileStatus,
   at: string,
@@ -222,7 +220,6 @@ export class Treasuries extends Context.Service<
     }),
   );
 
-  /** Refreshes once right away, then on the configured interval with jitter. */
   static readonly scheduled = Layer.effectDiscard(
     Effect.gen(function* () {
       const treasuries = yield* Treasuries;
