@@ -43,5 +43,9 @@ docker build -t polish-treasuries-api . && docker run -p 3000:3000 -v treasuries
 then on that interval, kept in `DATA_DIR/latest` and `previous`. On first boot the service loads
 `fixtures/`.
 
+Behind a reverse proxy on a subpath, set `BASE_PATH` (e.g. `/polish-treasuries-api`) and have the
+proxy strip the prefix. `BASE_PATH` only goes into the OpenAPI document's `servers`, so `/docs`
+sends its requests under the prefix.
+
 Code: [ISC](LICENSE). The data is public sector information from the Ministry of Finance,
 reproduced unchanged.

@@ -1,7 +1,7 @@
 import { NodeFileSystem, NodeHttpClient, NodeHttpServer, NodePath } from "@effect/platform-node";
-import { Config, Effect, Layer } from "effect";
+import { Config, Effect, Layer, Schema } from "effect";
 import { HttpMiddleware, HttpRouter, HttpServerResponse } from "effect/unstable/http";
-import { HttpApiBuilder, HttpApiScalar } from "effect/unstable/httpapi";
+import { HttpApiBuilder, HttpApiScalar, OpenApi } from "effect/unstable/httpapi";
 // NodeHttpServer needs Node's own server factory; there is no Effect equivalent to import.
 // @effect-diagnostics-next-line nodeBuiltinImport:off
 import { createServer } from "node:http";
@@ -18,12 +18,23 @@ const CacheHeaders = HttpRouter.middleware((httpEffect) =>
   Effect.map(httpEffect, HttpServerResponse.setHeader("cache-control", "public, max-age=3600")),
 ).layer;
 
-export const Routes = Layer.mergeAll(
-  HttpApiBuilder.layer(Api, { openapiPath: "/openapi.json" }).pipe(
-    Layer.provide(ApiHandlers),
-    Layer.provide(CacheHeaders),
-  ),
-  HttpApiScalar.layer(Api, { path: "/docs" }),
+export const BasePath = Config.schema(
+  Schema.String.check(Schema.isPattern(/^(\/[^/]+)*$/)),
+  "BASE_PATH",
+).pipe(Config.withDefault(""));
+
+export const Routes = Layer.unwrap(
+  Effect.gen(function* () {
+    const basePath = yield* BasePath;
+    const api = basePath === "" ? Api : Api.annotate(OpenApi.Servers, [{ url: basePath }]);
+    return Layer.mergeAll(
+      HttpApiBuilder.layer(api, { openapiPath: "/openapi.json" }).pipe(
+        Layer.provide(ApiHandlers),
+        Layer.provide(CacheHeaders),
+      ),
+      HttpApiScalar.layer(api, { path: "/docs" }),
+    );
+  }),
 );
 
 export const Services = Treasuries.layer.pipe(
