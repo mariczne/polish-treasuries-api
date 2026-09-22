@@ -19,7 +19,12 @@ const fetchText = (path: string) =>
           handler(new Request(`http://localhost${path}`)),
         );
         const text = yield* Effect.promise(() => response.text());
-        return { status: response.status, type: response.headers.get("content-type"), text };
+        return {
+          status: response.status,
+          type: response.headers.get("content-type"),
+          location: response.headers.get("location"),
+          text,
+        };
       }),
     ({ dispose }) => Effect.promise(dispose),
   );
@@ -51,6 +56,10 @@ describe("table suffix", () => {
 
   it.live("errors and JSON stay as they are", () =>
     Effect.gen(function* () {
+      const root = yield* fetchText("/");
+      expect(root.status).toBe(302);
+      expect(root.location).toBe("/docs");
+
       const missing = yield* fetchText("/bonds/EDO9999.csv");
       expect(missing.status).toBe(404);
       expect(missing.text).toBe('{"error":"NotFound"}');

@@ -33,6 +33,7 @@ export const Routes = Layer.unwrap(
         Layer.provide(CacheHeaders),
       ),
       HttpApiScalar.layer(api, { path: "/docs" }),
+      HttpRouter.add("GET", "/", HttpServerResponse.redirect(`${basePath}/docs`)),
     );
   }),
 );
