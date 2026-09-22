@@ -44,8 +44,18 @@ describe("Api", () => {
         edo.family === "savings" && edo.coupon.schedule === "per-period" && edo.coupon.rates.length,
       ).toBe(3);
 
-      const shared = yield* api.bonds.byIsin({ params: { isin: Isin.make("PL0000113890") } });
-      expect(shared.map((s) => s.code)).toEqual(["TOS0825", "DOS0823"]);
+      const byIsin = yield* api.bonds.byIsin({ params: { isin: Isin.make("PL0000117081") } });
+      expect(byIsin.code).toBe("EDO0734");
+
+      const missingIsin = yield* api.bonds
+        .byIsin({ params: { isin: Isin.make("PL0000100000") } })
+        .pipe(Effect.flip);
+      expect(missingIsin._tag).toBe("NotFound");
+
+      const conflict = yield* api.bonds
+        .byIsin({ params: { isin: Isin.make("PL0000113890") } })
+        .pipe(Effect.flip);
+      expect(conflict).toMatchObject({ _tag: "IsinConflict", codes: ["TOS0825", "DOS0823"] });
 
       const missing = yield* api.bonds
         .byCode({ params: { code: SeriesCode.make("EDO9999") } })

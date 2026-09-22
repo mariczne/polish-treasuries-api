@@ -44,11 +44,10 @@ const flatten = (
   if (value === null) {
     if (prefix !== "") into.set(prefix, "");
   } else if (Array.isArray(value)) {
-    const periodOf = (item: Json) =>
-      isObject(item) && typeof item["period"] === "number" ? item["period"] : null;
-    const byPeriod = value.every((item) => periodOf(item) !== null);
+    const periods = value.map(periodOf);
+    const byPeriod = periods.every((period) => period !== null);
     value.forEach((item, i) => {
-      const period = periodOf(item);
+      const period = periods[i];
       const index = byPeriod && period !== null ? String(period) : String(i + 1);
       const rest = byPeriod && isObject(item) ? withoutKey(item, "period") : item;
       flatten(rest, join(prefix, index), into);
@@ -65,6 +64,9 @@ const flatten = (
 
 const isObject = (value: Json): value is { readonly [key: string]: Json } =>
   typeof value === "object" && value !== null && !Array.isArray(value);
+
+const periodOf = (item: Json) =>
+  isObject(item) && typeof item["period"] === "number" ? item["period"] : null;
 
 const withoutKey = (object: { readonly [key: string]: Json }, key: string): Json =>
   Object.fromEntries(Object.entries(object).filter(([k]) => k !== key));

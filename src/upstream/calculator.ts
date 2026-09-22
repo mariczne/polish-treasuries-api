@@ -6,7 +6,6 @@ import {
   PeriodCouponRate,
   WholesaleBondSeries,
   WholesaleBondTypeCode,
-  type WholesaleBondTypeCode as WholesaleBondTypeCodeType,
 } from "../domain/bond.ts";
 import { Isin, SeriesCode, Tenor } from "../domain/primitives.ts";
 import { MonthlyReferenceIndex } from "../domain/reference-index.ts";
@@ -56,7 +55,7 @@ const SHEETS = {
     description: string;
     rate: BondType["rate"];
     nominal: BondType["nominal"];
-    types: ReadonlyArray<WholesaleBondTypeCodeType>;
+    types: ReadonlyArray<WholesaleBondTypeCode>;
   }>,
   ignored: ["Kalkulator odsetek", "WVH"],
 } as const;
@@ -131,6 +130,8 @@ const parseReferenceIndex = Effect.fn("parseReferenceIndex")(function* (workbook
   const rows = yield* Effect.forEach(table.records, (record) =>
     table.decode(record, ReferenceIndexRow),
   );
+  // The sheet's labels mislead: the monthly change is headed "Wskaźnik referencyjny" (WRk) and
+  // the chained level "Wskaźnik miesięczny" (Wn), not the other way round (CONTEXT.md)
   const months = rows.map(
     (row) =>
       new MonthlyReferenceIndex({

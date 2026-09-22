@@ -129,7 +129,7 @@ _Avoid_: CPI m/m, monthly inflation, GUS CPI
 
 **Reference Index**:
 The level consumer prices have reached in a month, chained from every Monthly Reference Index
-since July 2003 (July 2003 = 100), to five decimals as the Ministry publishes it.
+since July 2003 (June 2003 = 100), to five decimals as the Ministry publishes it.
 _Polish_: Wₙ, headed _wskaźnik miesięczny_ in _Dane CPI_ — not the "monthly" figure, despite the
 name; that is WRₖ
 _Avoid_: index (alone), inflation index, cumulative index, Reference CPI

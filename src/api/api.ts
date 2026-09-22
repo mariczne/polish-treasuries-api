@@ -1,30 +1,15 @@
 import { Predicate, Schema } from "effect";
-import {
-  HttpApi,
-  HttpApiEndpoint,
-  HttpApiGroup,
-  HttpApiSchema,
-  OpenApi,
-} from "effect/unstable/httpapi";
+import { HttpApi, HttpApiEndpoint, HttpApiGroup, OpenApi } from "effect/unstable/httpapi";
 import { BondSeries, BondType, BondTypeCode } from "../domain/bond.ts";
 import { Isin, SeriesCode, YearMonth } from "../domain/primitives.ts";
 import { MonthlyReferenceIndex } from "../domain/reference-index.ts";
 import { FileStatus } from "../treasuries.ts";
+import { NotFound, IsinConflict, wireError } from "./errors.ts";
 
 /**
  * The API as clients see it. Every endpoint also answers as a table when the path ends in `.csv`
  * or `.tsv` (see `table-suffix.ts`); only the JSON paths are documented.
  */
-
-/** An empty 404, like every other error this server sends. */
-export class NotFound extends Schema.TaggedError<NotFound>()(
-  "NotFound",
-  {},
-  { httpApiStatus: 404 },
-) {}
-const NotFoundNoContent = NotFound.pipe(
-  HttpApiSchema.asNoContent({ decode: () => new NotFound() }),
-);
 
 export const Year = Schema.String.check(Schema.isPattern(/^\d{4}$/))
   .annotate({ identifier: "Year", examples: ["2026"] })
@@ -47,7 +32,7 @@ export class InflationApi extends HttpApiGroup.make("inflation")
     HttpApiEndpoint.get("period", "/inflation/:period", {
       params: { period: Period },
       success: Schema.Array(MonthlyReferenceIndex),
-      error: NotFoundNoContent,
+      error: wireError(NotFound),
     }).annotateMerge(
       OpenApi.annotations({
         description:
@@ -80,20 +65,15 @@ export class BondsApi extends HttpApiGroup.make("bonds")
     }).annotateMerge(OpenApi.annotations({ description: "The Series of one Bond Type." })),
     HttpApiEndpoint.get("byIsin", "/bonds/by-isin/:isin", {
       params: { isin: Isin },
-      success: Schema.Array(BondSeries),
+      success: BondSeries,
+      error: [wireError(NotFound), wireError(IsinConflict)],
     }).annotateMerge(
-      OpenApi.annotations({
-        description: [
-          "The Series with this ISIN.",
-          "",
-          "⚠️ _An ISIN should identify a single security, but the source file has two copy errors: `PL0000113890` is on both TOS0825 and DOS0823, and `PL0000107280` on both COI1116 and TOZ1115. This is obviously a mistake, but this service is a proxy for the source files and does not correct them — so the response is a list, and for those two ISINs it has two entries._",
-        ].join("\n"),
-      }),
+      OpenApi.annotations({ description: "One Series by its ISIN, e.g. `PL0000117081`." }),
     ),
     HttpApiEndpoint.get("byCode", "/bonds/:code", {
       params: { code: SeriesCode },
       success: BondSeries,
-      error: NotFoundNoContent,
+      error: wireError(NotFound),
     }).annotateMerge(
       OpenApi.annotations({ description: "One Series by its code, e.g. `EDO0734` or `IZ0836`." }),
     ),

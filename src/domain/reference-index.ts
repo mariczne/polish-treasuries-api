@@ -12,6 +12,6 @@ export class MonthlyReferenceIndex extends Schema.Class<MonthlyReferenceIndex>(
   month: YearMonth,
   /** The month's change in consumer prices as a rate: `-0.004` for a 0.4 % fall. */
   rate: Decimal,
-  /** The Reference Index for the month (July 2003 = 100), to five decimals. */
+  /** The Reference Index for the month (June 2003 = 100), to five decimals. */
   referenceIndex: Decimal,
 }) {}

@@ -53,7 +53,13 @@ describe("table suffix", () => {
     Effect.gen(function* () {
       const missing = yield* fetchText("/bonds/EDO9999.csv");
       expect(missing.status).toBe(404);
-      expect(missing.text).toBe("");
+      expect(missing.text).toBe('{"error":"NotFound"}');
+
+      const conflict = yield* fetchText("/bonds/by-isin/PL0000113890");
+      expect(conflict.status).toBe(502);
+      expect(conflict.text).toBe(
+        '{"error":"IsinConflict","isin":"PL0000113890","codes":["TOS0825","DOS0823"]}',
+      );
 
       const json = yield* fetchText("/inflation/2026-08");
       expect(json.type).toContain("json");
@@ -73,6 +79,7 @@ describe("table suffix", () => {
       expect(schemas.some((name) => name.endsWith("Encoded") || name.includes("effect_"))).toBe(
         false,
       );
+      expect(doc.text).not.toContain('"_tag"');
     }),
   );
 });

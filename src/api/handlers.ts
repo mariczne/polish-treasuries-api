@@ -1,7 +1,8 @@
 import { Effect, Layer } from "effect";
 import { HttpApiBuilder } from "effect/unstable/httpapi";
 import { Treasuries } from "../treasuries.ts";
-import { Api, Health, NotFound, type Period } from "./api.ts";
+import { Api, Health, type Period } from "./api.ts";
+import { NotFound, IsinConflict } from "./errors.ts";
 
 /** Reads from what Treasuries currently serves; nothing is computed on the way out. */
 
@@ -38,8 +39,14 @@ export const BondsHandlers = HttpApiBuilder.group(
       list: () => series,
       byType: ({ params }) =>
         Effect.map(series, (all) => all.filter((s) => s.type === params.type)),
-      byIsin: ({ params }) =>
-        Effect.map(series, (all) => all.filter((s) => s.isin === params.isin)),
+      byIsin: Effect.fn(function* ({ params }) {
+        const found = (yield* series).filter((s) => s.isin === params.isin);
+        if (found.length === 0) return yield* new NotFound();
+        if (found.length > 1) {
+          return yield* new IsinConflict({ isin: params.isin, codes: found.map((s) => s.code) });
+        }
+        return found[0]!;
+      }),
       byCode: Effect.fn(function* ({ params }) {
         const found = (yield* series).find((s) => s.code === params.code);
         if (found === undefined) return yield* new NotFound();
