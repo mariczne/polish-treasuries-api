@@ -7,9 +7,9 @@ import {
   WholesaleBondSeries,
   WholesaleSeriesPrefix,
 } from "../domain/bond.ts";
-import { Isin, SeriesName, Tenor } from "../domain/primitives.ts";
+import { Duration, Isin, SeriesName } from "../domain/primitives.ts";
 import { InflationMonth } from "../domain/reference-index.ts";
-import { DayCell, DecimalCell, MonthCell, optionalCell } from "./cells.ts";
+import { DateCell, DecimalCell, MonthCell, optionalCell } from "./cells.ts";
 import { type Cell, Table, Workbook, WorkbookError } from "./workbook.ts";
 
 /**
@@ -67,19 +67,19 @@ const ReferenceIndexRow = Schema.Struct({
 const SeriesRow = Schema.Struct({
   Seria: SeriesName,
   "Kod ISIN": Isin,
-  Wykup: DayCell,
+  Wykup: DateCell,
 });
 const FixedCouponRow = Schema.Struct({ Kupon: DecimalCell });
 const IndexedRow = Schema.Struct({
-  "Data emisji": DayCell,
+  "Data emisji": DateCell,
   "Bazowy wskaźnik referencyjny": DecimalCell,
 });
 
 const PeriodDates = Schema.Struct({
-  "Początek okresu": optionalCell(DayCell),
-  "Koniec okresu": optionalCell(DayCell),
-  "Dzień ustalenia praw": optionalCell(DayCell),
-  "Data wymagalności": optionalCell(DayCell),
+  "Początek okresu": optionalCell(DateCell),
+  "Koniec okresu": optionalCell(DateCell),
+  "Dzień ustalenia praw": optionalCell(DateCell),
+  "Data wymagalności": optionalCell(DateCell),
 });
 /** A floating rate not yet set is written as the text `POLSTR` (the reference it will follow). */
 const OptionalRate = Schema.Union([optionalCell(DecimalCell), Schema.Literal("POLSTR")]);
@@ -251,14 +251,14 @@ const couponPeriods = Effect.fn("couponPeriods")(function* (
  * span, rounded to whole months. First and last periods are often short stubs; the mode ignores
  * them. `P12M` is written `P1Y`.
  */
-const regularPeriodLength = (periods: ReadonlyArray<DatedCouponPeriod>): Tenor => {
+const regularPeriodLength = (periods: ReadonlyArray<DatedCouponPeriod>): Duration => {
   const counts = new Map<number, number>();
   for (const period of periods) {
     const months = monthsBetween(period.from, period.to);
     counts.set(months, (counts.get(months) ?? 0) + 1);
   }
   const [months] = [...counts.entries()].toSorted(([, a], [, b]) => b - a)[0] ?? [12];
-  return Tenor.make(months % 12 === 0 ? `P${months / 12}Y` : `P${months}M`);
+  return Duration.make(months % 12 === 0 ? `P${months / 12}Y` : `P${months}M`);
 };
 
 /** Whole months between two `YYYY-MM-DD` days, rounded to the nearest month, at least one. */

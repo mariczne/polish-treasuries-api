@@ -1,5 +1,5 @@
 import { BigDecimal, DateTime, Effect, Schema, SchemaGetter, SchemaIssue } from "effect";
-import { CalendarDay, Decimal, Tenor, YearMonth } from "../domain/primitives.ts";
+import { CalendarDate, Decimal, Duration, YearMonth } from "../domain/primitives.ts";
 
 /**
  * How a raw spreadsheet cell becomes a domain value. Decode-only: nothing is ever written back to
@@ -16,9 +16,9 @@ const invalid = (expected: string) =>
 const serialToIsoDate = (serial: number) =>
   DateTime.formatIsoDateUtc(DateTime.makeUnsafe((serial - UNIX_EPOCH_SERIAL) * MS_PER_DAY));
 
-/** An Excel date serial (`49912`) to a CalendarDay (`2036-08-25`). */
-export const DayCell = Schema.Finite.pipe(
-  Schema.decodeTo(CalendarDay, {
+/** An Excel date serial (`49912`) to a CalendarDate (`2036-08-25`). */
+export const DateCell = Schema.Finite.pipe(
+  Schema.decodeTo(CalendarDate, {
     decode: SchemaGetter.transformEffect((serial: number) =>
       Number.isInteger(serial) && serial > 0
         ? Effect.succeed(serialToIsoDate(serial))
@@ -60,9 +60,9 @@ export const DecimalCell = Schema.Finite.pipe(
 
 const TENOR_TEXT = /^(\d+)\s+(lat\/a|lat|rok|miesiące|miesięcy|miesiąc)\s+od dnia zakupu$/;
 
-/** The Ministry's maturity rule (`10 lat/a od dnia zakupu`) to a Tenor (`P10Y`). */
+/** The Ministry's maturity rule (`10 lat/a od dnia zakupu`) to a Duration (`P10Y`). */
 export const TenorCell = Schema.String.pipe(
-  Schema.decodeTo(Tenor, {
+  Schema.decodeTo(Duration, {
     decode: SchemaGetter.transformEffect((text: string) => {
       const match = TENOR_TEXT.exec(text.replace(/\s+/g, " ").trim());
       if (match === null) return Effect.fail(invalid("a maturity rule counted from purchase"));

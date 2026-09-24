@@ -7,8 +7,8 @@ import {
   type SavingsCoupon,
   type SavingsSeriesPrefix,
 } from "../domain/bond.ts";
-import { Isin, SeriesName, Tenor } from "../domain/primitives.ts";
-import { DayCell, DecimalCell, optionalCell, TenorCell } from "./cells.ts";
+import { Duration, Isin, SeriesName } from "../domain/primitives.ts";
+import { DateCell, DecimalCell, optionalCell, TenorCell } from "./cells.ts";
 import { type Cell, Table, Workbook, WorkbookError } from "./workbook.ts";
 
 /**
@@ -24,24 +24,27 @@ export class SavingsBonds extends Schema.Class<SavingsBonds>("SavingsBonds")({
 
 /** `"tenor"`: one Coupon Period for the whole life, so its length is the Series' tenor (OTS, POS). */
 type CouponShape =
-  | { readonly schedule: "fixed"; readonly periodLength: Tenor | "tenor" }
+  | { readonly schedule: "fixed"; readonly periodLength: Duration | "tenor" }
   | {
       readonly schedule: "per-period";
-      readonly periodLength: Tenor;
+      readonly periodLength: Duration;
       readonly margin: "inflation" | "nbp-reference-rate";
     }
-  | { readonly schedule: "per-period"; readonly periodLength: Tenor; readonly multiplier: true };
+  | { readonly schedule: "per-period"; readonly periodLength: Duration; readonly multiplier: true };
 
 interface PrefixSpec {
   readonly prefix: SavingsSeriesPrefix;
-  readonly tenors: ReadonlyArray<Tenor>;
+  readonly tenors: ReadonlyArray<Duration>;
   readonly headerRows: 1 | 2;
   readonly capitalises: boolean;
   readonly shape: CouponShape;
 }
 
-const tenor = (value: string) => Tenor.make(value);
-const fixed = (periodLength: Tenor | "tenor"): CouponShape => ({ schedule: "fixed", periodLength });
+const tenor = (value: string) => Duration.make(value);
+const fixed = (periodLength: Duration | "tenor"): CouponShape => ({
+  schedule: "fixed",
+  periodLength,
+});
 /** A yearly rate: inflation plus a Margin. */
 const yearly: CouponShape = {
   schedule: "per-period",
@@ -143,8 +146,8 @@ const SeriesRow = Schema.Struct({
   Seria: SeriesName,
   "Kod ISIN": Isin,
   "Data wykupu": TenorCell,
-  "Początek sprzedaży": DayCell,
-  "Koniec sprzedaży": DayCell,
+  "Początek sprzedaży": DateCell,
+  "Koniec sprzedaży": DateCell,
   "Cena emisyjna": DecimalCell,
   "Cena zamiany": optionalCell(DecimalCell),
   "Sprzedaż łączna (mln zł)": optionalCell(DecimalCell),
@@ -235,7 +238,7 @@ const readCoupon = Effect.fn("readCoupon")(function* (
   shape: CouponShape,
   periodColumns: ReadonlyArray<[number, string]>,
   series: SeriesName,
-  tenorOfSeries: Tenor,
+  tenorOfSeries: Duration,
 ): Effect.fn.Return<SavingsCoupon, WorkbookError> {
   if (shape.schedule === "fixed") {
     const { Oprocentowanie } = yield* table.decode(record, FixedRateRow);

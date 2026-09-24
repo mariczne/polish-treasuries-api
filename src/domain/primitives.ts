@@ -10,17 +10,17 @@ export const Decimal = Schema.BigDecimalFromString.annotate({
 });
 export type Decimal = typeof Decimal.Type;
 
-/** A calendar day with no time or zone, `YYYY-MM-DD`. */
-export const CalendarDay = Schema.String.check(
+/** A calendar date with no time or zone, `YYYY-MM-DD`. */
+export const CalendarDate = Schema.String.check(
   Schema.isPattern(/^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/),
 )
   .annotate({
-    identifier: "CalendarDay",
-    description: "A calendar day, YYYY-MM-DD",
+    identifier: "CalendarDate",
+    description: "A calendar date, YYYY-MM-DD",
     examples: ["2036-08-25"],
   })
-  .pipe(Schema.brand("CalendarDay"));
-export type CalendarDay = typeof CalendarDay.Type;
+  .pipe(Schema.brand("CalendarDate"));
+export type CalendarDate = typeof CalendarDate.Type;
 
 /** A calendar month, `YYYY-MM`. */
 export const YearMonth = Schema.String.check(Schema.isPattern(/^\d{4}-(0[1-9]|1[0-2])$/))
@@ -33,14 +33,14 @@ export const YearMonth = Schema.String.check(Schema.isPattern(/^\d{4}-(0[1-9]|1[
 export type YearMonth = typeof YearMonth.Type;
 
 /** An ISO 8601 duration made only of whole years or whole months, `P10Y` / `P3M`. */
-export const Tenor = Schema.String.check(Schema.isPattern(/^P([1-9]\d*Y|[1-9]\d*M)$/))
+export const Duration = Schema.String.check(Schema.isPattern(/^P([1-9]\d*Y|[1-9]\d*M)$/))
   .annotate({
-    identifier: "Tenor",
+    identifier: "Duration",
     description: "A whole number of years or months, as an ISO 8601 duration",
     examples: ["P10Y", "P3M"],
   })
-  .pipe(Schema.brand("Tenor"));
-export type Tenor = typeof Tenor.Type;
+  .pipe(Schema.brand("Duration"));
+export type Duration = typeof Duration.Type;
 
 export const Isin = Schema.String.check(Schema.isPattern(/^PL\d{10}$/))
   .annotate({ identifier: "Isin", examples: ["PL0000117024"] })
