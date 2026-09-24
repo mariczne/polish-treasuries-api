@@ -25,7 +25,15 @@ export const Routes = Layer.unwrap(
     const api = basePath === "" ? Api : Api.annotate(OpenApi.Servers, [{ url: basePath }]);
     return Layer.mergeAll(
       HttpApiBuilder.layer(api, { openapiPath: "/openapi.json" }).pipe(Layer.provide(ApiHandlers)),
-      HttpApiScalar.layer(api, { path: "/docs" }),
+      HttpApiScalar.layer(api, {
+        path: "/docs",
+        scalar: {
+          defaultOpenAllTags: true,
+          //@ts-expect-error
+          expandAllResponses: true,
+          favicon: `data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏦</text></svg>`,
+        },
+      }),
       HttpRouter.add("GET", "/", HttpServerResponse.redirect(`${basePath}/docs`)),
     );
   }),
