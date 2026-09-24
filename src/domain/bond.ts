@@ -53,7 +53,7 @@ export type SeriesPrefix = typeof SeriesPrefix.Type;
 /**
  * How long a regular Coupon Period is: `P1Y`, `P1M`, `P6M`. For a Savings Bond it is the letter of
  * issue's; for a Wholesale Bond it is read off the dated periods (the most common span, rounded
- * to whole months) — one of the two figures in this API not copied from a cell (see `issueDay`).
+ * to whole months) — one of the few figures in this API not copied from a cell (see README).
  */
 const PeriodLength = Tenor;
 
@@ -110,13 +110,13 @@ export const WholesaleCoupon = Schema.Union([FixedCoupon, PerPeriodCoupon]).anno
 export type WholesaleCoupon = typeof WholesaleCoupon.Type;
 
 /** The nominal stays at face value. */
-export const FixedNominal = Schema.Struct({ kind: Schema.Literal("fixed") }).annotate({
+export const FixedNominal = Schema.Struct({ indexation: Schema.Literal("none") }).annotate({
   identifier: "FixedNominal",
 });
 
 /** The nominal is indexed to inflation from the Base Reference Index its letter of issue fixed (IZ). */
 export const IndexedNominal = Schema.Struct({
-  kind: Schema.Literal("inflation-indexed"),
+  indexation: Schema.Literal("inflation"),
   baseReferenceIndex: Decimal,
 }).annotate({ identifier: "IndexedNominal" });
 
@@ -128,6 +128,13 @@ export type WholesaleNominal = typeof WholesaleNominal.Type;
 export class SaleWindow extends Schema.Class<SaleWindow>("SaleWindow")({
   from: CalendarDay,
   to: CalendarDay,
+}) {}
+
+/** What a Savings Bond Series sold in its Sale Window, in PLN (the file gives millions). */
+export class Sales extends Schema.Class<Sales>("Sales")({
+  total: Decimal,
+  /** Of the total, what buyers switched in from a maturing Series; absent when switching was not offered. */
+  switched: Schema.OptionFromNullOr(Decimal),
 }) {}
 
 /** One month's sale of a Savings Bond (CONTEXT.md "Series"): sale terms and coupon. */
@@ -149,10 +156,8 @@ export class SavingsBondSeries extends Schema.Class<SavingsBondSeries>("SavingsB
    * _cena zamiany_, so we keep theirs.
    */
   switchingPrice: Schema.OptionFromNullOr(Decimal),
-  /** Total sold in the Sale Window, in millions of PLN; absent while the window is open. */
-  totalSaleMlnPln: Schema.OptionFromNullOr(Decimal),
-  /** Of the total, how much came from switching, in millions of PLN. */
-  switchedMlnPln: Schema.OptionFromNullOr(Decimal),
+  /** Absent while the Sale Window is open. */
+  sales: Schema.OptionFromNullOr(Sales),
   nominal: FixedNominal,
   coupon: SavingsCoupon,
 }) {}
@@ -160,9 +165,9 @@ export class SavingsBondSeries extends Schema.Class<SavingsBondSeries>("SavingsB
 export class DatedCouponPeriod extends Schema.Class<DatedCouponPeriod>("DatedCouponPeriod")({
   /** 1-based, in the order the letter of issue lists them. */
   period: Schema.Int.check(Schema.isGreaterThanOrEqualTo(1)),
-  start: CalendarDay,
-  end: CalendarDay,
-  recordDay: CalendarDay,
+  from: CalendarDay,
+  to: CalendarDay,
+  recordDate: CalendarDay,
   paymentDate: CalendarDay,
 }) {}
 
@@ -174,11 +179,11 @@ export class WholesaleBondSeries extends Schema.Class<WholesaleBondSeries>("Whol
   isin: Isin,
   /**
    * The day the bond was issued. Stated in the file only for IZ; for every other Series Prefix it
-   * is the first Coupon Period's start — one of the two figures in this API not copied from a cell
-   * (see `periodLength`).
+   * is the first Coupon Period's first day — one of the few figures in this API not copied from a cell
+   * (see README).
    */
-  issueDay: CalendarDay,
-  maturity: CalendarDay,
+  issueDate: CalendarDay,
+  maturityDate: CalendarDay,
   nominal: WholesaleNominal,
   coupon: WholesaleCoupon,
   couponPeriods: Schema.Array(DatedCouponPeriod),

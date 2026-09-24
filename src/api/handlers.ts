@@ -58,10 +58,10 @@ export const SystemHandlers = HttpApiBuilder.group(
           const facts = yield* treasuries.facts;
           return new Health({
             status: "ok",
-            months: facts.inflation.length,
+            monthCount: facts.inflation.length,
             latestMonth: facts.inflation.at(-1)?.month ?? null,
-            prefixes: new Set(facts.series.map((s) => s.prefix)).size,
-            series: facts.series.length,
+            prefixCount: new Set(facts.series.map((s) => s.prefix)).size,
+            seriesCount: facts.series.length,
             files: yield* treasuries.status,
           });
         }),

@@ -47,7 +47,7 @@ describe("parseSavingsBonds", () => {
       ]);
       expect(series.find((s) => s.series === "EDO0734")).toMatchObject({
         family: "savings",
-        nominal: { kind: "fixed" },
+        nominal: { indexation: "none" },
         capitalises: true,
       });
       expect(series.find((s) => s.prefix === "ROR")).toMatchObject({
@@ -88,7 +88,9 @@ describe("parseSavingsBonds", () => {
       });
       expect(equals(edo0734.issuePrice, "100")).toBe(true);
       expect(someEquals(edo0734.switchingPrice, "99.6")).toBe(true);
-      expect(someEquals(edo0734.totalSaleMlnPln, "753.8711")).toBe(true);
+      const sales = Option.getOrThrow(edo0734.sales);
+      expect(BigDecimal.format(sales.total)).toBe("753871100");
+      expect(someEquals(sales.switched, "40921400")).toBe(true);
       expect(perPeriod(edo0734.coupon).periodLength).toBe("P1Y");
       expect(rates(edo0734.coupon)).toEqual([
         [1, "0.068"],
@@ -105,7 +107,7 @@ describe("parseSavingsBonds", () => {
       const { series } = yield* parsed;
       const edo0936 = series.find((s) => s.series === "EDO0936")!;
       expect(edo0936.saleWindow).toMatchObject({ from: "2026-09-01", to: "2026-09-30" });
-      expect(Option.isNone(edo0936.totalSaleMlnPln)).toBe(true);
+      expect(Option.isNone(edo0936.sales)).toBe(true);
       expect(rates(edo0936.coupon)).toEqual([[1, "0.0535"]]);
 
       const tos0929 = series.find((s) => s.series === "TOS0929")!;

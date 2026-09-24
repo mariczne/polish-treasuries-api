@@ -90,10 +90,10 @@ export class BondsApi extends HttpApiGroup.make("bonds")
 
 export class Health extends Schema.Class<Health>("Health")({
   status: Schema.Literal("ok"),
-  months: Schema.Int,
+  monthCount: Schema.Int,
   latestMonth: Schema.NullOr(YearMonth),
-  prefixes: Schema.Int,
-  series: Schema.Int,
+  prefixCount: Schema.Int,
+  seriesCount: Schema.Int,
   /** Per source file: where the served copy came from and how the last download went. */
   files: Schema.Array(FileStatus),
 }) {}
@@ -128,7 +128,7 @@ export class Api extends HttpApi.make("polish-treasuries")
     OpenApi.annotations({
       title: "Polish Treasuries API",
       description:
-        "The terms of Polish Treasury Bonds and the inflation figures used to index them, as published by the Ministry of Finance of Poland in its spreadsheets.\n\nEvery read returns a list; when nothing matches, the list is empty. Add `.csv` or `.tsv` to any path to get the same data as a table.",
+        "The terms of Polish Treasury Bonds and the inflation figures used to index them, as published by the Ministry of Finance of Poland in its spreadsheets.\n\nEvery read returns a list; when nothing matches, the list is empty. Decimals are strings and amounts are PLN. Add `.csv` or `.tsv` to any path to get the same data as a table.",
       version: "0.1.0",
       transform: tidyComponentNames,
     }),

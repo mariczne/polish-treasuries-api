@@ -66,12 +66,12 @@ _Avoid_: T-bond (alone), market bond, linker
 
 **Coupon Period**:
 The n-th interval of a Series over which one Coupon Rate applies; its length (a year, a month,
-a half-year) is fixed by the letter of issue. For a Wholesale Bond it is fully dated — start, end,
-record day, payment date. For a Savings Bond it is only an ordinal, because its dates hang off
+a half-year) is fixed by the letter of issue. For a Wholesale Bond it is fully dated — from, to,
+record date, payment date. For a Savings Bond it is only an ordinal, because its dates hang off
 the buyer's purchase day.
 _Polish_: _okres odsetkowy_; columns _w 1. roku_, _w 1. okresie_ (savings) and _Kupon #01_
-(wholesale), dated by _Początek okresu_ (start), _Koniec okresu_ (end), _Dzień ustalenia praw_
-(record day), _Data wymagalności_ (payment date)
+(wholesale), dated by _Początek okresu_ (from), _Koniec okresu_ (to), _Dzień ustalenia praw_
+(record date), _Data wymagalności_ (payment date)
 _Avoid_: interest period, year (alone), kupon
 
 **Coupon Rate**:

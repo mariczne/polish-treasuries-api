@@ -47,23 +47,23 @@ describe("parseCalculator", () => {
         family: "wholesale",
         prefix: "IZ",
         isin: "PL0000117024",
-        issueDay: "2023-08-25",
-        maturity: "2036-08-25",
+        issueDate: "2023-08-25",
+        maturityDate: "2036-08-25",
       });
       expect(iz0836.coupon.schedule === "fixed" && equals(iz0836.coupon.rate, "0.02")).toBe(true);
       expect(
-        iz0836.nominal.kind === "inflation-indexed" &&
+        iz0836.nominal.indexation === "inflation" &&
           equals(iz0836.nominal.baseReferenceIndex, "194.28509"),
       ).toBe(true);
       expect(iz0836.couponPeriods).toHaveLength(13);
       expect(iz0836.couponPeriods[0]).toMatchObject({
         period: 1,
-        start: "2023-08-25",
-        end: "2024-08-25",
+        from: "2023-08-25",
+        to: "2024-08-25",
       });
       expect(iz0836.couponPeriods.at(-1)).toMatchObject({
         period: 13,
-        end: "2036-08-25",
+        to: "2036-08-25",
         paymentDate: "2036-08-25",
       });
       const iz0816 = inflationLinkedBonds.find((bond) => bond.series === "IZ0816")!;
@@ -101,13 +101,13 @@ describe("parseCalculator", () => {
       expect(ws0447).toMatchObject({
         prefix: "WS",
         isin: "PL0000109765",
-        maturity: "2047-04-25",
-        issueDay: "2016-04-25",
+        maturityDate: "2047-04-25",
+        issueDate: "2016-04-25",
       });
       expect(ws0447.coupon.schedule === "fixed" && equals(ws0447.coupon.rate, "0.04")).toBe(true);
       expect(ws0447.coupon.periodLength).toBe("P1Y");
       expect(series.find((b) => b.series === "IZ0836")!.coupon.periodLength).toBe("P1Y");
-      expect(ws0447.nominal).toEqual({ kind: "fixed" });
+      expect(ws0447.nominal).toEqual({ indexation: "none" });
       expect(ws0447.couponPeriods).toHaveLength(31);
 
       const nz0936 = series.find((bond) => bond.series === "NZ0936")!;

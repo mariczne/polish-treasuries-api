@@ -30,25 +30,25 @@ const SHEETS = {
     {
       name: "Indeksowane",
       rate: "fixed",
-      nominal: "inflation-indexed",
+      indexation: "inflation",
       prefixes: ["IZ"],
     },
     {
       name: "Stałe",
       rate: "fixed",
-      nominal: "fixed",
+      indexation: "none",
       prefixes: ["OS", "PS", "DS", "WS", "AS", "TK", "CK", "PK", "DK", "SP"],
     },
     {
       name: "Zmienne",
       rate: "floating",
-      nominal: "fixed",
+      indexation: "none",
       prefixes: ["TZ", "WZ", "DZ", "PP", "NZ"],
     },
   ] as const satisfies ReadonlyArray<{
     name: string;
     rate: "fixed" | "floating";
-    nominal: WholesaleNominal["kind"];
+    indexation: WholesaleNominal["indexation"];
     prefixes: ReadonlyArray<WholesaleSeriesPrefix>;
   }>,
   ignored: ["Kalkulator odsetek", "WVH"],
@@ -174,7 +174,7 @@ const parseWholesale = Effect.fn("parseWholesale")(function* (
       });
     }
     const indexed =
-      sheet.nominal === "inflation-indexed"
+      sheet.indexation === "inflation"
         ? Option.some(yield* table.decode(record, IndexedRow))
         : Option.none();
     bonds.push(
@@ -183,17 +183,17 @@ const parseWholesale = Effect.fn("parseWholesale")(function* (
         series: row.Seria,
         prefix,
         isin: row["Kod ISIN"],
-        issueDay: Option.match(indexed, {
+        issueDate: Option.match(indexed, {
           onSome: (i) => i["Data emisji"],
-          onNone: () => firstPeriod.start,
+          onNone: () => firstPeriod.from,
         }),
-        maturity: row.Wykup,
+        maturityDate: row.Wykup,
         nominal: Option.match(indexed, {
           onSome: (i): WholesaleNominal => ({
-            kind: "inflation-indexed",
+            indexation: "inflation",
             baseReferenceIndex: i["Bazowy wskaźnik referencyjny"],
           }),
-          onNone: (): WholesaleNominal => ({ kind: "fixed" }),
+          onNone: (): WholesaleNominal => ({ indexation: "none" }),
         }),
         coupon,
         couponPeriods: periods.dated,
@@ -230,9 +230,9 @@ const couponPeriods = Effect.fn("couponPeriods")(function* (
     dated.push(
       new DatedCouponPeriod({
         period: number,
-        start: dates[0]!.value,
-        end: dates[1]!.value,
-        recordDay: dates[2]!.value,
+        from: dates[0]!.value,
+        to: dates[1]!.value,
+        recordDate: dates[2]!.value,
         paymentDate: dates[3]!.value,
       }),
     );
@@ -247,14 +247,14 @@ const couponPeriods = Effect.fn("couponPeriods")(function* (
 });
 
 /**
- * The length of a regular Coupon Period, read off the dated periods: the most common start→end
+ * The length of a regular Coupon Period, read off the dated periods: the most common from→to
  * span, rounded to whole months. First and last periods are often short stubs; the mode ignores
  * them. `P12M` is written `P1Y`.
  */
 const regularPeriodLength = (periods: ReadonlyArray<DatedCouponPeriod>): Tenor => {
   const counts = new Map<number, number>();
   for (const period of periods) {
-    const months = monthsBetween(period.start, period.end);
+    const months = monthsBetween(period.from, period.to);
     counts.set(months, (counts.get(months) ?? 0) + 1);
   }
   const [months] = [...counts.entries()].toSorted(([, a], [, b]) => b - a)[0] ?? [12];

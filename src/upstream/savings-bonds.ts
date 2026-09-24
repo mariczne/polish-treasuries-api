@@ -1,7 +1,8 @@
-import { Effect, Option, Schema } from "effect";
+import { BigDecimal, Effect, Option, Schema } from "effect";
 import {
   PeriodCouponRate,
   SaleWindow,
+  Sales,
   SavingsBondSeries,
   type SavingsCoupon,
   type SavingsSeriesPrefix,
@@ -150,6 +151,9 @@ const SeriesRow = Schema.Struct({
   "w tym zamiana (mln zł)": optionalCell(DecimalCell),
 });
 
+const MILLION = BigDecimal.fromBigInt(1_000_000n);
+const millions = (value: BigDecimal.BigDecimal) => BigDecimal.multiply(value, MILLION);
+
 const FixedRateRow = Schema.Struct({ Oprocentowanie: DecimalCell });
 const PERIOD_RATE_COLUMN = /^Oprocentowanie \/ w (\d+)\. (?:roku|okresie)$/;
 const OptionalDecimal = optionalCell(DecimalCell);
@@ -209,9 +213,15 @@ const parseSheet = Effect.fn("parseSheet")(function* (workbook: Workbook, spec: 
         }),
         issuePrice: row["Cena emisyjna"],
         switchingPrice: row["Cena zamiany"],
-        totalSaleMlnPln: row["Sprzedaż łączna (mln zł)"],
-        switchedMlnPln: row["w tym zamiana (mln zł)"],
-        nominal: { kind: "fixed" },
+        sales: Option.map(
+          row["Sprzedaż łączna (mln zł)"],
+          (total) =>
+            new Sales({
+              total: millions(total),
+              switched: Option.map(row["w tym zamiana (mln zł)"], millions),
+            }),
+        ),
+        nominal: { indexation: "none" },
         coupon,
       }),
     );

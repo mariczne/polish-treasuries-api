@@ -21,9 +21,10 @@ Every read returns a list, `[]` when nothing matches; only a malformed parameter
 Filters on `/bonds` combine. Append `.csv` or `.tsv` to the path to get the same data as a table:
 `/bonds.csv?prefix=EDO`.
 
-Decimals are strings, days are `YYYY-MM-DD` and tenors are ISO 8601 (`P10Y`). A rate the Ministry
-has not announced yet is left out. Two wholesale figures are derived rather than copied: `coupon.periodLength` (the most common
-period span) and `issueDay` (the first period's start; the file only states it for IZ).
+Decimals are strings, amounts are PLN, days are `YYYY-MM-DD` and tenors are ISO 8601 (`P10Y`). A
+rate the Ministry has not announced yet is left out. Three figures are derived rather than copied:
+`sales` (the file gives millions of PLN), `coupon.periodLength` (the most common wholesale period
+span) and `issueDate` (the first period's first day; the file only states it for IZ).
 
 ## Coverage
 

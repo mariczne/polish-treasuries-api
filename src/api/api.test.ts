@@ -60,9 +60,9 @@ describe("Api", () => {
       const health = yield* api.system.health();
       expect(health).toMatchObject({
         status: "ok",
-        months: 278,
+        monthCount: 278,
         latestMonth: "2026-08",
-        series: 1731,
+        seriesCount: 1731,
       });
       expect(health.files.map((f) => [f.source, f.lastAttempt])).toEqual([
         ["fixture", null],
