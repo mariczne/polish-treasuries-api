@@ -89,10 +89,11 @@ follow)
 _Avoid_: null, missing, TBD, empty
 
 **Margin**:
-The fixed spread a letter of issue adds to the reference (inflation, or the NBP rate) to set a
-Series' Coupon Rate after the first period (`0.02` for EDO0734). A term of the Series; the
+The fixed spread a letter of issue adds to the reference to set a Series' Coupon Rate after the
+first period (`0.02` for EDO0734): inflation for COI, EDO, ROS, ROD; the NBP reference rate for
+ROR, DOR. The file names neither reference; they are the letters' own. A term of the Series; the
 resulting Coupon Rates are read from the Ministry, never worked out from the Margin here.
-_Polish_: _marża_
+_Polish_: _marża_; the NBP reference rate is _stopa referencyjna NBP_
 _Avoid_: spread, premium
 
 **Multiplier**:

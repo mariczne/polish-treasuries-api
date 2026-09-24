@@ -1,10 +1,9 @@
 import { Effect, Option, Schema } from "effect";
 import {
-  type Coupon,
   DatedCouponPeriod,
-  type NominalKind,
   PeriodCouponRate,
-  type RateKind,
+  type WholesaleCoupon,
+  type WholesaleNominal,
   WholesaleBondSeries,
   WholesaleSeriesPrefix,
 } from "../domain/bond.ts";
@@ -48,8 +47,8 @@ const SHEETS = {
     },
   ] as const satisfies ReadonlyArray<{
     name: string;
-    rate: RateKind;
-    nominal: NominalKind;
+    rate: "fixed" | "floating";
+    nominal: WholesaleNominal["kind"];
     prefixes: ReadonlyArray<WholesaleSeriesPrefix>;
   }>,
   ignored: ["Kalkulator odsetek", "WVH"],
@@ -160,46 +159,43 @@ const parseWholesale = Effect.fn("parseWholesale")(function* (
     );
     const periods = yield* couponPeriods(table, record, periodColumns, row.Seria, sheet.rate);
     const periodLength = regularPeriodLength(periods.dated);
-    const coupon: Coupon =
+    const coupon: WholesaleCoupon =
       sheet.rate === "floating"
-        ? {
-            schedule: "per-period",
-            periodLength,
-            rates: periods.rates,
-            margin: Option.none(),
-            multiplier: Option.none(),
-          }
+        ? { schedule: "per-period", periodLength, rates: periods.rates }
         : {
             schedule: "fixed",
             rate: (yield* table.decode(record, FixedCouponRow)).Kupon,
             periodLength,
           };
-    const indexed =
-      sheet.nominal === "inflation-indexed"
-        ? Option.some(yield* table.decode(record, IndexedRow))
-        : Option.none();
     const firstPeriod = periods.dated[0];
     if (firstPeriod === undefined) {
       return yield* new WorkbookError({
         message: `Sheet "${sheet.name}": ${row.Seria} has no coupon periods`,
       });
     }
+    const indexed =
+      sheet.nominal === "inflation-indexed"
+        ? Option.some(yield* table.decode(record, IndexedRow))
+        : Option.none();
     bonds.push(
       new WholesaleBondSeries({
         family: "wholesale",
         series: row.Seria,
         prefix,
         isin: row["Kod ISIN"],
-        rateKind: sheet.rate,
-        nominalKind: sheet.nominal,
-        capitalises: false,
         issueDay: Option.match(indexed, {
           onSome: (i) => i["Data emisji"],
           onNone: () => firstPeriod.start,
         }),
         maturity: row.Wykup,
+        nominal: Option.match(indexed, {
+          onSome: (i): WholesaleNominal => ({
+            kind: "inflation-indexed",
+            baseReferenceIndex: i["Bazowy wskaźnik referencyjny"],
+          }),
+          onNone: (): WholesaleNominal => ({ kind: "fixed" }),
+        }),
         coupon,
-        baseReferenceIndex: Option.map(indexed, (i) => i["Bazowy wskaźnik referencyjny"]),
         couponPeriods: periods.dated,
       }),
     );
@@ -213,7 +209,7 @@ const couponPeriods = Effect.fn("couponPeriods")(function* (
   record: Readonly<Record<string, Cell>>,
   periodColumns: ReadonlyArray<[number, Record<string, string>]>,
   series: SeriesName,
-  rate: RateKind,
+  rate: WholesaleSheet["rate"],
 ) {
   const dated: Array<DatedCouponPeriod> = [];
   const rates: Array<PeriodCouponRate> = [];

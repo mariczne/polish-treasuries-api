@@ -1,10 +1,9 @@
 import { Effect, Option, Schema } from "effect";
 import {
-  type Coupon,
-  type RateKind,
   PeriodCouponRate,
   SaleWindow,
   SavingsBondSeries,
+  type SavingsCoupon,
   type SavingsSeriesPrefix,
 } from "../domain/bond.ts";
 import { Isin, SeriesName, Tenor } from "../domain/primitives.ts";
@@ -28,29 +27,31 @@ type CouponShape =
   | {
       readonly schedule: "per-period";
       readonly periodLength: Tenor;
-      readonly reference: "Marża" | "Mnożnik";
-    };
+      readonly margin: "inflation" | "nbp-reference-rate";
+    }
+  | { readonly schedule: "per-period"; readonly periodLength: Tenor; readonly multiplier: true };
 
 interface PrefixSpec {
   readonly prefix: SavingsSeriesPrefix;
   readonly tenors: ReadonlyArray<Tenor>;
   readonly headerRows: 1 | 2;
-  readonly rate: RateKind;
   readonly capitalises: boolean;
   readonly shape: CouponShape;
 }
 
 const tenor = (value: string) => Tenor.make(value);
 const fixed = (periodLength: Tenor | "tenor"): CouponShape => ({ schedule: "fixed", periodLength });
-const yearly = (reference: "Marża" | "Mnożnik"): CouponShape => ({
+/** A yearly rate: inflation plus a Margin. */
+const yearly: CouponShape = {
   schedule: "per-period",
   periodLength: tenor("P1Y"),
-  reference,
-});
+  margin: "inflation",
+};
+/** A monthly rate: the NBP reference rate plus a Margin. */
 const monthly: CouponShape = {
   schedule: "per-period",
   periodLength: tenor("P1M"),
-  reference: "Marża",
+  margin: "nbp-reference-rate",
 };
 
 /** What the letters of issue fix per Series Prefix and the file does not spell out. */
@@ -59,7 +60,6 @@ const PREFIXES: ReadonlyArray<PrefixSpec> = [
     prefix: "OTS",
     tenors: [tenor("P3M")],
     headerRows: 1,
-    rate: "fixed",
     capitalises: false,
     shape: fixed("tenor"),
   },
@@ -67,7 +67,6 @@ const PREFIXES: ReadonlyArray<PrefixSpec> = [
     prefix: "ROR",
     tenors: [tenor("P1Y")],
     headerRows: 2,
-    rate: "floating",
     capitalises: false,
     shape: monthly,
   },
@@ -75,7 +74,6 @@ const PREFIXES: ReadonlyArray<PrefixSpec> = [
     prefix: "DOR",
     tenors: [tenor("P2Y")],
     headerRows: 2,
-    rate: "floating",
     capitalises: false,
     shape: monthly,
   },
@@ -83,7 +81,6 @@ const PREFIXES: ReadonlyArray<PrefixSpec> = [
     prefix: "TOS",
     tenors: [tenor("P3Y")],
     headerRows: 1,
-    rate: "fixed",
     capitalises: true,
     shape: fixed(tenor("P1Y")),
   },
@@ -91,39 +88,34 @@ const PREFIXES: ReadonlyArray<PrefixSpec> = [
     prefix: "COI",
     tenors: [tenor("P4Y")],
     headerRows: 2,
-    rate: "inflation-indexed",
     capitalises: false,
-    shape: yearly("Marża"),
+    shape: yearly,
   },
   {
     prefix: "EDO",
     tenors: [tenor("P10Y")],
     headerRows: 2,
-    rate: "inflation-indexed",
     capitalises: true,
-    shape: yearly("Marża"),
+    shape: yearly,
   },
   {
     prefix: "ROS",
     tenors: [tenor("P6Y")],
     headerRows: 2,
-    rate: "inflation-indexed",
     capitalises: true,
-    shape: yearly("Marża"),
+    shape: yearly,
   },
   {
     prefix: "ROD",
     tenors: [tenor("P12Y")],
     headerRows: 2,
-    rate: "inflation-indexed",
     capitalises: true,
-    shape: yearly("Marża"),
+    shape: yearly,
   },
   {
     prefix: "DOS",
     tenors: [tenor("P2Y")],
     headerRows: 1,
-    rate: "fixed",
     capitalises: true,
     shape: fixed(tenor("P1Y")),
   },
@@ -131,15 +123,13 @@ const PREFIXES: ReadonlyArray<PrefixSpec> = [
     prefix: "TOZ",
     tenors: [tenor("P3Y")],
     headerRows: 2,
-    rate: "floating",
     capitalises: false,
-    shape: { schedule: "per-period", periodLength: tenor("P6M"), reference: "Mnożnik" },
+    shape: { schedule: "per-period", periodLength: tenor("P6M"), multiplier: true },
   },
   {
     prefix: "POS",
     tenors: [tenor("P10M"), tenor("P12M")],
     headerRows: 1,
-    rate: "fixed",
     capitalises: false,
     shape: fixed("tenor"),
   },
@@ -211,8 +201,6 @@ const parseSheet = Effect.fn("parseSheet")(function* (workbook: Workbook, spec: 
         series: row.Seria,
         prefix: spec.prefix,
         isin: row["Kod ISIN"],
-        rateKind: spec.rate,
-        nominalKind: "fixed",
         capitalises: spec.capitalises,
         tenor: row["Data wykupu"],
         saleWindow: new SaleWindow({
@@ -223,6 +211,7 @@ const parseSheet = Effect.fn("parseSheet")(function* (workbook: Workbook, spec: 
         switchingPrice: row["Cena zamiany"],
         totalSaleMlnPln: row["Sprzedaż łączna (mln zł)"],
         switchedMlnPln: row["w tym zamiana (mln zł)"],
+        nominal: { kind: "fixed" },
         coupon,
       }),
     );
@@ -237,7 +226,7 @@ const readCoupon = Effect.fn("readCoupon")(function* (
   periodColumns: ReadonlyArray<[number, string]>,
   series: SeriesName,
   tenorOfSeries: Tenor,
-): Effect.fn.Return<Coupon, WorkbookError> {
+): Effect.fn.Return<SavingsCoupon, WorkbookError> {
   if (shape.schedule === "fixed") {
     const { Oprocentowanie } = yield* table.decode(record, FixedRateRow);
     return {
@@ -246,14 +235,18 @@ const readCoupon = Effect.fn("readCoupon")(function* (
       periodLength: shape.periodLength === "tenor" ? tenorOfSeries : shape.periodLength,
     };
   }
-  const reference = yield* table.decodeCell(record, shape.reference, OptionalDecimal);
-  return {
+  const coupon = {
     schedule: "per-period",
     periodLength: shape.periodLength,
     rates: yield* periodRates(table, record, periodColumns, series),
-    margin: shape.reference === "Marża" ? reference : Option.none(),
-    multiplier: shape.reference === "Mnożnik" ? reference : Option.none(),
-  };
+  } as const;
+  return "margin" in shape
+    ? {
+        ...coupon,
+        reference: shape.margin,
+        margin: yield* table.decodeCell(record, "Marża", DecimalCell),
+      }
+    : { ...coupon, multiplier: yield* table.decodeCell(record, "Mnożnik", DecimalCell) };
 });
 
 /** Announced periods in order; the first blank ends the list and everything after it must be blank too. */

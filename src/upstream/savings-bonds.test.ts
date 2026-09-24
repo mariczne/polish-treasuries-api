@@ -1,6 +1,6 @@
 import { describe, expect, it } from "@effect/vitest";
 import { BigDecimal, Effect, Option } from "effect";
-import type { Coupon } from "../domain/bond.ts";
+import type { SavingsCoupon } from "../domain/bond.ts";
 import { fixture } from "./fixtures.ts";
 import { parseSavingsBonds } from "./savings-bonds.ts";
 
@@ -8,12 +8,20 @@ const decimal = (s: string) => BigDecimal.fromStringUnsafe(s);
 const equals = (a: BigDecimal.BigDecimal, b: string) => BigDecimal.equals(a, decimal(b));
 const someEquals = (a: Option.Option<BigDecimal.BigDecimal>, b: string) =>
   Option.isSome(a) && equals(a.value, b);
-const perPeriod = (coupon: Coupon) => {
+const perPeriod = (coupon: SavingsCoupon) => {
   if (coupon.schedule !== "per-period")
     throw new Error(`expected PerPeriod, got ${coupon.schedule}`);
   return coupon;
 };
-const rates = (coupon: Coupon) =>
+const margin = (coupon: SavingsCoupon) => {
+  const c = perPeriod(coupon);
+  return "margin" in c ? `${c.reference} + ${BigDecimal.format(c.margin)}` : undefined;
+};
+const multiplier = (coupon: SavingsCoupon) => {
+  const c = perPeriod(coupon);
+  return "multiplier" in c ? BigDecimal.format(c.multiplier) : undefined;
+};
+const rates = (coupon: SavingsCoupon) =>
   perPeriod(coupon).rates.map((r) => [r.period, BigDecimal.format(r.rate)]);
 
 describe("parseSavingsBonds", () => {
@@ -39,12 +47,10 @@ describe("parseSavingsBonds", () => {
       ]);
       expect(series.find((s) => s.series === "EDO0734")).toMatchObject({
         family: "savings",
-        rateKind: "inflation-indexed",
-        nominalKind: "fixed",
+        nominal: { kind: "fixed" },
         capitalises: true,
       });
       expect(series.find((s) => s.prefix === "ROR")).toMatchObject({
-        rateKind: "floating",
         capitalises: false,
       });
     }),
@@ -89,8 +95,8 @@ describe("parseSavingsBonds", () => {
         [2, "0.06"],
         [3, "0.051"],
       ]);
-      expect(someEquals(perPeriod(edo0734.coupon).margin, "0.02")).toBe(true);
-      expect(Option.isNone(perPeriod(edo0734.coupon).multiplier)).toBe(true);
+      expect(margin(edo0734.coupon)).toBe("inflation + 0.02");
+      expect(multiplier(edo0734.coupon)).toBeUndefined();
     }),
   );
 
@@ -110,7 +116,7 @@ describe("parseSavingsBonds", () => {
       const ror0927 = series.find((s) => s.series === "ROR0927")!;
       expect(perPeriod(ror0927.coupon).periodLength).toBe("P1M");
       expect(rates(ror0927.coupon)).toEqual([[1, "0.04"]]);
-      expect(someEquals(perPeriod(ror0927.coupon).margin, "0")).toBe(true);
+      expect(margin(ror0927.coupon)).toBe("nbp-reference-rate + 0");
     }),
   );
 
@@ -128,8 +134,8 @@ describe("parseSavingsBonds", () => {
       const toz0515 = series.find((s) => s.series === "TOZ0515")!;
       expect(perPeriod(toz0515.coupon).periodLength).toBe("P6M");
       expect(rates(toz0515.coupon)).toHaveLength(6);
-      expect(someEquals(perPeriod(toz0515.coupon).multiplier, "1")).toBe(true);
-      expect(Option.isNone(perPeriod(toz0515.coupon).margin)).toBe(true);
+      expect(multiplier(toz0515.coupon)).toBe("1");
+      expect(margin(toz0515.coupon)).toBeUndefined();
 
       const ots0118 = series.find((s) => s.series === "OTS0118")!;
       expect(ots0118.tenor).toBe("P3M");

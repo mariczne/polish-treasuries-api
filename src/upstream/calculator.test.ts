@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest";
-import { BigDecimal, Effect, Option } from "effect";
+import { BigDecimal, Effect } from "effect";
 import { YearMonth } from "../domain/primitives.ts";
 import { parseCalculator } from "./calculator.ts";
 import { fixture } from "./fixtures.ts";
@@ -47,16 +47,13 @@ describe("parseCalculator", () => {
         family: "wholesale",
         prefix: "IZ",
         isin: "PL0000117024",
-        rateKind: "fixed",
-        nominalKind: "inflation-indexed",
-        capitalises: false,
         issueDay: "2023-08-25",
         maturity: "2036-08-25",
       });
       expect(iz0836.coupon.schedule === "fixed" && equals(iz0836.coupon.rate, "0.02")).toBe(true);
       expect(
-        Option.isSome(iz0836.baseReferenceIndex) &&
-          equals(iz0836.baseReferenceIndex.value, "194.28509"),
+        iz0836.nominal.kind === "inflation-indexed" &&
+          equals(iz0836.nominal.baseReferenceIndex, "194.28509"),
       ).toBe(true);
       expect(iz0836.couponPeriods).toHaveLength(13);
       expect(iz0836.couponPeriods[0]).toMatchObject({
@@ -110,7 +107,7 @@ describe("parseCalculator", () => {
       expect(ws0447.coupon.schedule === "fixed" && equals(ws0447.coupon.rate, "0.04")).toBe(true);
       expect(ws0447.coupon.periodLength).toBe("P1Y");
       expect(series.find((b) => b.series === "IZ0836")!.coupon.periodLength).toBe("P1Y");
-      expect(Option.isNone(ws0447.baseReferenceIndex)).toBe(true);
+      expect(ws0447.nominal).toEqual({ kind: "fixed" });
       expect(ws0447.couponPeriods).toHaveLength(31);
 
       const nz0936 = series.find((bond) => bond.series === "NZ0936")!;

@@ -50,18 +50,6 @@ export const SeriesPrefix = Schema.Literals([
 });
 export type SeriesPrefix = typeof SeriesPrefix.Type;
 
-/** How the Coupon Rate is set: once for good, from a reference rate, or from inflation. */
-export const RateKind = Schema.Literals(["fixed", "floating", "inflation-indexed"]).annotate({
-  identifier: "RateKind",
-});
-export type RateKind = typeof RateKind.Type;
-
-/** Whether the nominal is indexed to inflation (IZ) or stays at face value. */
-export const NominalKind = Schema.Literals(["fixed", "inflation-indexed"]).annotate({
-  identifier: "NominalKind",
-});
-export type NominalKind = typeof NominalKind.Type;
-
 /**
  * How long a regular Coupon Period is: `P1Y`, `P1M`, `P6M`. For a Savings Bond it is the letter of
  * issue's; for a Wholesale Bond it is read off the dated periods (the most common span, rounded
@@ -74,11 +62,11 @@ export const FixedCoupon = Schema.Struct({
   schedule: Schema.Literal("fixed"),
   rate: Decimal,
   periodLength: PeriodLength,
-});
+}).annotate({ identifier: "FixedCoupon" });
 
 /** One announced Coupon Rate. Periods the Ministry has not announced are simply absent. */
 export class PeriodCouponRate extends Schema.Class<PeriodCouponRate>("PeriodCouponRate")({
-  /** 1-based Coupon Period counted from the purchase day. */
+  /** 1-based: counted from the purchase day for a Savings Bond, as numbered in the file for a Wholesale Bond. */
   period: Schema.Int.check(Schema.isGreaterThanOrEqualTo(1)),
   rate: Decimal,
 }) {}
@@ -87,20 +75,55 @@ export class PeriodCouponRate extends Schema.Class<PeriodCouponRate>("PeriodCoup
  * Coupon Rates announced one Coupon Period at a time. `rates` holds only what the Ministry has
  * announced; a missing period is Not Yet Announced (CONTEXT.md), never zero.
  */
-export const PerPeriodCoupon = Schema.Struct({
+const perPeriod = {
   schedule: Schema.Literal("per-period"),
   periodLength: PeriodLength,
   rates: Schema.Array(PeriodCouponRate),
-  /** The spread the letter of issue adds to the reference (CONTEXT.md "Margin"). */
-  margin: Schema.OptionFromNullOr(Decimal),
-  /** The factor applied to the reference rate (CONTEXT.md "Multiplier"; TOZ only). */
-  multiplier: Schema.OptionFromNullOr(Decimal),
+};
+
+/** A floating-rate Wholesale Bond's rates; the file carries nothing about how they are set. */
+export const PerPeriodCoupon = Schema.Struct(perPeriod).annotate({
+  identifier: "PerPeriodCoupon",
 });
 
-export const Coupon = Schema.Union([FixedCoupon, PerPeriodCoupon]).annotate({
-  identifier: "Coupon",
+/** A reference plus a Margin: inflation for COI, EDO, ROS, ROD; the NBP reference rate for ROR, DOR. */
+export const MarginCoupon = Schema.Struct({
+  ...perPeriod,
+  reference: Schema.Literals(["inflation", "nbp-reference-rate"]),
+  margin: Decimal,
+}).annotate({ identifier: "MarginCoupon" });
+
+/** The reference rate times a Multiplier (TOZ). */
+export const MultiplierCoupon = Schema.Struct({
+  ...perPeriod,
+  multiplier: Decimal,
+}).annotate({ identifier: "MultiplierCoupon" });
+
+export const SavingsCoupon = Schema.Union([FixedCoupon, MarginCoupon, MultiplierCoupon]).annotate({
+  identifier: "SavingsCoupon",
 });
-export type Coupon = typeof Coupon.Type;
+export type SavingsCoupon = typeof SavingsCoupon.Type;
+
+export const WholesaleCoupon = Schema.Union([FixedCoupon, PerPeriodCoupon]).annotate({
+  identifier: "WholesaleCoupon",
+});
+export type WholesaleCoupon = typeof WholesaleCoupon.Type;
+
+/** The nominal stays at face value. */
+export const FixedNominal = Schema.Struct({ kind: Schema.Literal("fixed") }).annotate({
+  identifier: "FixedNominal",
+});
+
+/** The nominal is indexed to inflation from the Base Reference Index its letter of issue fixed (IZ). */
+export const IndexedNominal = Schema.Struct({
+  kind: Schema.Literal("inflation-indexed"),
+  baseReferenceIndex: Decimal,
+}).annotate({ identifier: "IndexedNominal" });
+
+export const WholesaleNominal = Schema.Union([FixedNominal, IndexedNominal]).annotate({
+  identifier: "WholesaleNominal",
+});
+export type WholesaleNominal = typeof WholesaleNominal.Type;
 
 export class SaleWindow extends Schema.Class<SaleWindow>("SaleWindow")({
   from: CalendarDay,
@@ -113,8 +136,6 @@ export class SavingsBondSeries extends Schema.Class<SavingsBondSeries>("SavingsB
   series: SeriesName,
   prefix: SavingsSeriesPrefix,
   isin: Isin,
-  rateKind: RateKind,
-  nominalKind: Schema.Literal("fixed"),
   /** Interest is added to the nominal each period (else paid out to the holder). */
   capitalises: Schema.Boolean,
   /** Maturity as the Ministry states it: so long after the purchase day. */
@@ -132,7 +153,8 @@ export class SavingsBondSeries extends Schema.Class<SavingsBondSeries>("SavingsB
   totalSaleMlnPln: Schema.OptionFromNullOr(Decimal),
   /** Of the total, how much came from switching, in millions of PLN. */
   switchedMlnPln: Schema.OptionFromNullOr(Decimal),
-  coupon: Coupon,
+  nominal: FixedNominal,
+  coupon: SavingsCoupon,
 }) {}
 
 export class DatedCouponPeriod extends Schema.Class<DatedCouponPeriod>("DatedCouponPeriod")({
@@ -150,20 +172,15 @@ export class WholesaleBondSeries extends Schema.Class<WholesaleBondSeries>("Whol
   series: SeriesName,
   prefix: WholesaleSeriesPrefix,
   isin: Isin,
-  rateKind: RateKind,
-  nominalKind: NominalKind,
-  /** Always false: a Wholesale Bond pays its interest out. */
-  capitalises: Schema.Literal(false),
   /**
-   * The day the bond was issued. Stated in the file only for IZ; for every other Series Prefix it is the
-   * first Coupon Period's start — one of the two figures in this API not copied from a cell (see
-   * `periodLength`).
+   * The day the bond was issued. Stated in the file only for IZ; for every other Series Prefix it
+   * is the first Coupon Period's start — one of the two figures in this API not copied from a cell
+   * (see `periodLength`).
    */
   issueDay: CalendarDay,
   maturity: CalendarDay,
-  coupon: Coupon,
-  /** The Base Reference Index the letter of issue fixed, for Series whose nominal is indexed. */
-  baseReferenceIndex: Schema.OptionFromNullOr(Decimal),
+  nominal: WholesaleNominal,
+  coupon: WholesaleCoupon,
   couponPeriods: Schema.Array(DatedCouponPeriod),
 }) {}
 

@@ -36,7 +36,7 @@ export type YearMonth = typeof YearMonth.Type;
 export const Tenor = Schema.String.check(Schema.isPattern(/^P([1-9]\d*Y|[1-9]\d*M)$/))
   .annotate({
     identifier: "Tenor",
-    description: "How long after purchase a Savings Bond matures, as an ISO 8601 duration",
+    description: "A whole number of years or months, as an ISO 8601 duration",
     examples: ["P10Y", "P3M"],
   })
   .pipe(Schema.brand("Tenor"));
