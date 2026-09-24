@@ -2,9 +2,9 @@ import { describe, expect, it } from "@effect/vitest";
 import { Effect, Layer } from "effect";
 import { HttpServer } from "effect/unstable/http";
 import { HttpApiTest } from "effect/unstable/httpapi";
-import { Isin, SeriesCode, YearMonth } from "../domain/primitives.ts";
+import { Isin, SeriesName, YearMonth } from "../domain/primitives.ts";
 import { TestServices } from "../test-services.ts";
-import { Api, Year } from "./api.ts";
+import { Api, type Period, Year } from "./api.ts";
 import { ApiHandlers } from "./handlers.ts";
 
 const TestLayer = Layer.mergeAll(ApiHandlers, HttpServer.layerServices).pipe(
@@ -17,50 +17,40 @@ describe("Api", () => {
   it.effect("serves inflation by period", () =>
     Effect.gen(function* () {
       const api = yield* client;
-      expect(yield* api.inflation.list()).toHaveLength(278);
-      expect(yield* api.inflation.period({ params: { period: Year.make("2025") } })).toHaveLength(
-        12,
-      );
-      expect(
-        yield* api.inflation.period({ params: { period: YearMonth.make("2026-08") } }),
-      ).toHaveLength(1);
-
-      const missing = yield* api.inflation
-        .period({ params: { period: YearMonth.make("1999-01") } })
-        .pipe(Effect.flip);
-      expect(missing._tag).toBe("NotFound");
+      const period = (period?: Period) =>
+        api.inflation.list({ query: period === undefined ? {} : { period } });
+      expect(yield* period()).toHaveLength(278);
+      expect(yield* period(Year.make("2025"))).toHaveLength(12);
+      expect(yield* period(YearMonth.make("2026-08"))).toHaveLength(1);
+      expect(yield* period(YearMonth.make("1999-01"))).toEqual([]);
     }).pipe(Effect.provide(TestLayer)),
   );
 
-  it.effect("serves bonds by type, code and ISIN", () =>
+  it.effect("serves bonds by filter, as lists", () =>
     Effect.gen(function* () {
       const api = yield* client;
-      expect((yield* api.bonds.types()).map((t) => t.code)).toContain("IZ");
-      expect(yield* api.bonds.list()).toHaveLength(1731);
-      expect(yield* api.bonds.byType({ params: { type: "EDO" } })).toHaveLength(264);
 
-      const edo = yield* api.bonds.byCode({ params: { code: SeriesCode.make("EDO0734") } });
+      expect(yield* api.bonds.list({ query: {} })).toHaveLength(1731);
+      expect(yield* api.bonds.list({ query: { prefix: "EDO" } })).toHaveLength(264);
+      expect(yield* api.bonds.list({ query: { prefix: "EDO", family: "wholesale" } })).toEqual([]);
+      const series = (name: string) => api.bonds.list({ query: { series: SeriesName.make(name) } });
+      const [edo, ...rest] = yield* series("EDO0734");
+      expect(rest).toEqual([]);
       expect(
-        edo.family === "savings" && edo.coupon.schedule === "per-period" && edo.coupon.rates.length,
+        edo?.family === "savings" &&
+          edo.coupon.schedule === "per-period" &&
+          edo.coupon.rates.length,
       ).toBe(3);
+      expect(yield* series("EDO9999")).toEqual([]);
 
-      const byIsin = yield* api.bonds.byIsin({ params: { isin: Isin.make("PL0000117081") } });
-      expect(byIsin.code).toBe("EDO0734");
-
-      const missingIsin = yield* api.bonds
-        .byIsin({ params: { isin: Isin.make("PL0000100000") } })
-        .pipe(Effect.flip);
-      expect(missingIsin._tag).toBe("NotFound");
-
-      const conflict = yield* api.bonds
-        .byIsin({ params: { isin: Isin.make("PL0000113890") } })
-        .pipe(Effect.flip);
-      expect(conflict).toMatchObject({ _tag: "IsinConflict", codes: ["TOS0825", "DOS0823"] });
-
-      const missing = yield* api.bonds
-        .byCode({ params: { code: SeriesCode.make("EDO9999") } })
-        .pipe(Effect.flip);
-      expect(missing._tag).toBe("NotFound");
+      const byIsin = (isin: string) =>
+        Effect.map(api.bonds.list({ query: { isin: Isin.make(isin) } }), (found) =>
+          found.map((s) => s.series),
+        );
+      expect(yield* byIsin("PL0000117081")).toEqual(["EDO0734"]);
+      expect(yield* byIsin("PL0000100000")).toEqual([]);
+      // The file puts PL0000113890 on two Series; both are served
+      expect(yield* byIsin("PL0000113890")).toEqual(["TOS0825", "DOS0823"]);
     }).pipe(Effect.provide(TestLayer)),
   );
 

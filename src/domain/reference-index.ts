@@ -6,9 +6,7 @@ import { Decimal, YearMonth } from "./primitives.ts";
  * "Reference Index"): the month's price change as the Ministry fixed it, and the level the chain
  * had reached by then — both exactly as the Ministry's sheet carries them.
  */
-export class MonthlyReferenceIndex extends Schema.Class<MonthlyReferenceIndex>(
-  "MonthlyReferenceIndex",
-)({
+export class InflationMonth extends Schema.Class<InflationMonth>("InflationMonth")({
   month: YearMonth,
   /** The month's change in consumer prices as a rate: `-0.004` for a 0.4 % fall. */
   rate: Decimal,

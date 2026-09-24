@@ -13,27 +13,36 @@ and docs, use the English term.
 ### Bonds
 
 **Series**:
-One issue of one Bond Type, known by the code the Ministry gives it (`EDO0734`, `IZ0836`) and
-carrying an ISIN. For a Savings Bond, the month's issue: everyone who bought that month holds
-the same Series with the same terms.
+One issue of bonds, known by its Series Name and carrying an ISIN. For a Savings Bond, one
+month's sale: everyone who bought that month holds the same Series with the same terms. For a
+Wholesale Bond, one line of bonds, reopened at auction after auction.
 _Polish_: _seria_
-_Avoid_: issue, ticker, tranche, bond (for the row)
+_Avoid_: issue, ticker, tranche, line, bond (for the row)
 
-**Bond Type**:
-A template of terms a letter of issue instantiates issue after issue: a family, a tenor, how the
-coupon is set (fixed, floating, or indexed to inflation), whether the nominal is indexed to
-inflation, and whether interest is paid out or capitalised. Savings: OTS, ROR, DOR, TOS, COI,
-EDO, ROS, ROD (sold today), DOS, TOZ, POS (retired) — described; KOS, IR, RS, TZ, SP — named
-only. Wholesale: IZ; OS, PS, DS, WS, AS, TK, CK, PK, DK, SP (fixed rate); TZ, WZ, DZ, PP, NZ
-(floating rate) — all described.
-_Polish_: the code expands to the name, e.g. EDO — _emerytalne dziesięcioletnie oszczędnościowe
-obligacje skarbowe o oprocentowaniu indeksowanym inflacją_; _o stałej stopie procentowej_ (fixed),
-_o zmiennej stopie procentowej_ (floating)
-_Avoid_: kind, product, class, series (for the type), inflation-linked bond (for IZ alone —
-EDO, COI, ROS and ROD are inflation-indexed too, in their coupon)
+**Series Name**:
+The Ministry's name for a Series: its Series Prefix followed by the month and year of maturity
+(`EDO0734` matures in July 2034, `DS1034` in October 2034). For a Savings Bond the month and year
+are nominal — the Series matures a tenor after each buyer's purchase day.
+_Polish_: _seria_ (the column header), _nazwa skrócona_ (in the letter of issue); the Ministry
+describes the format as `XXMMRR`
+_Avoid_: code, symbol, ticker
+
+**Series Prefix**:
+The letters of a Series Name (`EDO`, `DS`). For a Savings Bond it names a product whose letters
+of issue repeat the same terms month after month: tenor, how the coupon is set, whether interest
+capitalises. For a Wholesale Bond it only groups lines by coupon structure and original tenor;
+each Series' letter of issue sets its own terms. Either way, the terms are served on the Series.
+Savings: OTS, ROR, DOR, TOS, COI, EDO, ROS, ROD (sold today), DOS, TOZ, POS (retired); KOS, IR, RS,
+TZ, SP (not read). Wholesale: IZ; OS, PS, DS, WS, AS, TK, CK, PK, DK, SP (fixed rate); TZ, WZ, DZ,
+PP, NZ (floating rate).
+_Polish_: _symbol_ or _rodzaj obligacji_ (savings), _typ papieru_ (wholesale). The letters expand
+to the product's name, e.g. EDO — _emerytalne dziesięcioletnie oszczędnościowe obligacje skarbowe
+o oprocentowaniu indeksowanym inflacją_
+_Avoid_: type, kind, product, class, bond type, series (for the Series Prefix), inflation-linked bond
+(for IZ alone — EDO, COI, ROS and ROD are inflation-indexed too, in their coupon)
 
 **Family**:
-Which of the Ministry's two offerings a Bond Type belongs to: Savings Bond or Wholesale Bond.
+Which of the Ministry's two offerings a Series belongs to: Savings Bond or Wholesale Bond.
 _Avoid_: market, segment, category
 
 **Savings Bond**:
@@ -57,7 +66,7 @@ _Avoid_: T-bond (alone), market bond, linker
 
 **Coupon Period**:
 The n-th interval of a Series over which one Coupon Rate applies; its length (a year, a month,
-a half-year) is fixed by the Bond Type. For a Wholesale Bond it is fully dated — start, end,
+a half-year) is fixed by the letter of issue. For a Wholesale Bond it is fully dated — start, end,
 record day, payment date. For a Savings Bond it is only an ordinal, because its dates hang off
 the buyer's purchase day.
 _Polish_: _okres odsetkowy_; columns _w 1. roku_, _w 1. okresie_ (savings) and _Kupon #01_
@@ -94,7 +103,7 @@ _Avoid_: margin (for the multiplier), factor, coefficient
 
 **Sale Window**:
 The first and last day a Savings Bond Series was on sale — one calendar month for today's
-types. Together with Issue Price and Switching Price, the Series' sale terms.
+Series Prefixes. Together with Issue Price and Switching Price, the Series' sale terms.
 _Polish_: _Początek sprzedaży_, _Koniec sprzedaży_ (the Dictionary sheet: "Sale beginning/end")
 _Avoid_: subscription (a different, 1990s channel), offer period, sale beginning/end (as terms)
 
@@ -113,8 +122,8 @@ _Avoid_: exchange price, rollover price, conversion price
 **Maturity**:
 When a Series is redeemed, as the Ministry states it: a date for a Wholesale Bond; for a Savings
 Bond a tenor counted from the buyer's purchase day ("10 years from day of purchase"), which
-this service does not resolve to a date. The tenor is a term of the Series, not only of the
-type: POS ran ten and twelve months.
+this service does not resolve to a date. The tenor is a term of the Series, not only of its
+Series Prefix: POS ran ten and twelve months.
 _Polish_: _Data wykupu_ (savings file; "10 lat/a od dnia zakupu"), _Wykup_ (calculator; a date)
 _Avoid_: redemption date (for the rule), tenor (for the date)
 

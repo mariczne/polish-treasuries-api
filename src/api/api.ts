@@ -6,21 +6,23 @@ import {
   HttpApiMiddleware,
   OpenApi,
 } from "effect/unstable/httpapi";
-import { BondSeries, BondType, BondTypeCode } from "../domain/bond.ts";
-import { Isin, SeriesCode, YearMonth } from "../domain/primitives.ts";
-import { MonthlyReferenceIndex } from "../domain/reference-index.ts";
+import { BondSeries, Family, SeriesPrefix } from "../domain/bond.ts";
+import { Isin, SeriesName, YearMonth } from "../domain/primitives.ts";
+import { InflationMonth } from "../domain/reference-index.ts";
 import { FileStatus } from "../treasuries.ts";
-import { BadRequest, IsinConflict, NotFound, wireError } from "./errors.ts";
+import { BadRequest, wireError } from "./errors.ts";
 
 /**
- * The API as clients see it. Every endpoint also answers as a table when the path ends in `.csv`
- * or `.tsv` (see `table-suffix.ts`); only the JSON paths are documented.
+ * The API as clients see it. Every read is a list, narrowed by its query; nothing matching
+ * is `[]`, not an error, and only a malformed parameter is (400). Every endpoint also answers as a
+ * table when the path ends in `.csv` or `.tsv` (see `table-suffix.ts`); only the JSON paths are
+ * documented.
  */
 
 /** Data changes at most once a day, so its reads are public and cacheable; `/health` is not. */
 export class Cached extends HttpApiMiddleware.Service<Cached>()("api/Cached") {}
 
-/** Turns Effect's empty 400 for a path parameter that does not decode into a `BadRequest`. */
+/** Turns Effect's empty 400 for a parameter that does not decode into a `BadRequest`. */
 export class BadRequests extends HttpApiMiddleware.Service<BadRequests>()("api/BadRequests", {
   error: wireError(BadRequest),
 }) {}
@@ -36,23 +38,14 @@ export type Period = typeof Period.Type;
 export class InflationApi extends HttpApiGroup.make("inflation")
   .add(
     HttpApiEndpoint.get("list", "/inflation", {
-      success: Schema.Array(MonthlyReferenceIndex),
-    }).annotateMerge(
-      OpenApi.annotations({
-        description:
-          "Every month since July 2003: the month's price change as a rate (Monthly Reference Index) and the level reached (Reference Index).",
-      }),
-    ),
-    HttpApiEndpoint.get("period", "/inflation/:period", {
-      params: { period: Period },
-      success: Schema.Array(MonthlyReferenceIndex),
-      error: wireError(NotFound),
+      query: { period: Schema.optionalKey(Period) },
+      success: Schema.Array(InflationMonth),
     })
       .middleware(BadRequests)
       .annotateMerge(
         OpenApi.annotations({
           description:
-            "The months of one year (`/inflation/2026`) or one month (`/inflation/2026-02`).",
+            "Every month since July 2003, or those of one year (`?period=2026`) or one month (`?period=2026-02`): the month's price change as a rate (Monthly Reference Index) and the level reached (Reference Index).",
         }),
       ),
   )
@@ -70,35 +63,21 @@ export class InflationApi extends HttpApiGroup.make("inflation")
 
 export class BondsApi extends HttpApiGroup.make("bonds")
   .add(
-    HttpApiEndpoint.get("types", "/bonds/types", { success: Schema.Array(BondType) }).annotateMerge(
-      OpenApi.annotations({ description: "Every Bond Type, savings and wholesale." }),
-    ),
-    HttpApiEndpoint.get("list", "/bonds", { success: Schema.Array(BondSeries) }).annotateMerge(
-      OpenApi.annotations({ description: "Every Series of every Bond Type." }),
-    ),
-    HttpApiEndpoint.get("byType", "/bonds/by-type/:type", {
-      params: { type: BondTypeCode },
+    HttpApiEndpoint.get("list", "/bonds", {
+      query: {
+        series: Schema.optionalKey(SeriesName),
+        prefix: Schema.optionalKey(SeriesPrefix),
+        family: Schema.optionalKey(Family),
+        isin: Schema.optionalKey(Isin),
+      },
       success: Schema.Array(BondSeries),
     })
       .middleware(BadRequests)
-      .annotateMerge(OpenApi.annotations({ description: "The Series of one Bond Type." })),
-    HttpApiEndpoint.get("byIsin", "/bonds/by-isin/:isin", {
-      params: { isin: Isin },
-      success: BondSeries,
-      error: [wireError(NotFound), wireError(IsinConflict)],
-    })
-      .middleware(BadRequests)
       .annotateMerge(
-        OpenApi.annotations({ description: "One Series by its ISIN, e.g. `PL0000117081`." }),
-      ),
-    HttpApiEndpoint.get("byCode", "/bonds/:code", {
-      params: { code: SeriesCode },
-      success: BondSeries,
-      error: wireError(NotFound),
-    })
-      .middleware(BadRequests)
-      .annotateMerge(
-        OpenApi.annotations({ description: "One Series by its code, e.g. `EDO0734` or `IZ0836`." }),
+        OpenApi.annotations({
+          description:
+            "Every Series, or those matching all the filters given: `/bonds?prefix=EDO`, `/bonds?series=EDO0734`, `/bonds?isin=PL0000117081`. The Ministry's file has a few ISINs on more than one Series; those return every one.",
+        }),
       ),
   )
   .middleware(Cached)
@@ -113,7 +92,7 @@ export class Health extends Schema.Class<Health>("Health")({
   status: Schema.Literal("ok"),
   months: Schema.Int,
   latestMonth: Schema.NullOr(YearMonth),
-  types: Schema.Int,
+  prefixes: Schema.Int,
   series: Schema.Int,
   /** Per source file: where the served copy came from and how the last download went. */
   files: Schema.Array(FileStatus),
@@ -149,7 +128,7 @@ export class Api extends HttpApi.make("polish-treasuries")
     OpenApi.annotations({
       title: "Polish Treasuries API",
       description:
-        "The terms of Polish Treasury Bonds and the inflation figures used to index them, as published by the Ministry of Finance of Poland in its spreadsheets.\n\nAdd `.csv` or `.tsv` to any path to get the same data as a table.",
+        "The terms of Polish Treasury Bonds and the inflation figures used to index them, as published by the Ministry of Finance of Poland in its spreadsheets.\n\nEvery read returns a list; when nothing matches, the list is empty. Add `.csv` or `.tsv` to any path to get the same data as a table.",
       version: "0.1.0",
       transform: tidyComponentNames,
     }),

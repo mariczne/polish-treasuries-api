@@ -4,7 +4,7 @@ import { tabular } from "./tabular.ts";
 describe("tabular", () => {
   const rows = [
     {
-      code: "EDO0734",
+      series: "EDO0734",
       saleWindow: { from: "2024-07-01", to: "2024-07-31" },
       switchingPrice: "99.6",
       coupon: {
@@ -17,7 +17,7 @@ describe("tabular", () => {
       },
     },
     {
-      code: "TOS0929",
+      series: "TOS0929",
       saleWindow: { from: "2026-09-01", to: "2026-09-30" },
       switchingPrice: null,
       coupon: { schedule: "fixed", rate: "0.044" },
@@ -27,7 +27,7 @@ describe("tabular", () => {
   it("spreads nested fields and period lists into sheet-like columns", () => {
     expect(tabular(rows, "csv")).toBe(
       [
-        "code,saleWindow.from,saleWindow.to,switchingPrice,coupon.schedule,coupon.rates.1.rate,coupon.rates.2.rate,coupon.margin,coupon.rate",
+        "series,saleWindow.from,saleWindow.to,switchingPrice,coupon.schedule,coupon.rates.1.rate,coupon.rates.2.rate,coupon.margin,coupon.rate",
         "EDO0734,2024-07-01,2024-07-31,99.6,per-period,0.068,0.06,0.02,",
         "TOS0929,2026-09-01,2026-09-30,,fixed,,,,0.044",
         "",

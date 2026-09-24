@@ -10,8 +10,8 @@ import {
   Schedule,
   Schema,
 } from "effect";
-import { BondSeries, BondType } from "./domain/bond.ts";
-import { MonthlyReferenceIndex } from "./domain/reference-index.ts";
+import { BondSeries } from "./domain/bond.ts";
+import { InflationMonth } from "./domain/reference-index.ts";
 import { parseCalculator } from "./upstream/calculator.ts";
 import { FILES, type MinistryFile, Upstream } from "./upstream/download.ts";
 import { parseSavingsBonds } from "./upstream/savings-bonds.ts";
@@ -30,8 +30,7 @@ export const RefreshEvery = Config.Duration("REFRESH_EVERY").pipe(Config.withDef
 
 /** Everything parsed from one file. */
 export class Facts extends Schema.Class<Facts>("Facts")({
-  inflation: Schema.Array(MonthlyReferenceIndex),
-  types: Schema.Array(BondType),
+  inflation: Schema.Array(InflationMonth),
   series: Schema.Array(BondSeries),
 }) {}
 
@@ -49,13 +48,11 @@ const parsers: Record<MinistryFile["name"], (bytes: Uint8Array) => Effect.Effect
   {
     [FILES.calculator.name]: (bytes) =>
       parseCalculator(bytes).pipe(
-        Effect.map(
-          (c) => new Facts({ inflation: c.referenceIndex, types: c.types, series: c.series }),
-        ),
+        Effect.map((c) => new Facts({ inflation: c.referenceIndex, series: c.series })),
       ),
     [FILES.savingsBonds.name]: (bytes) =>
       parseSavingsBonds(bytes).pipe(
-        Effect.map((s) => new Facts({ inflation: [], types: s.types, series: s.series })),
+        Effect.map((s) => new Facts({ inflation: [], series: s.series })),
       ),
   };
 
@@ -135,7 +132,6 @@ export class Treasuries extends Context.Service<
           const parts = [...files.values()].map((loaded) => loaded.facts);
           return new Facts({
             inflation: parts.flatMap((part) => part.inflation),
-            types: parts.flatMap((part) => part.types),
             series: parts.flatMap((part) => part.series),
           });
         }),

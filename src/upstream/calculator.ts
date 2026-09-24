@@ -1,14 +1,15 @@
 import { Effect, Option, Schema } from "effect";
 import {
-  BondType,
   type Coupon,
   DatedCouponPeriod,
+  type NominalKind,
   PeriodCouponRate,
+  type RateKind,
   WholesaleBondSeries,
-  WholesaleBondTypeCode,
+  WholesaleSeriesPrefix,
 } from "../domain/bond.ts";
-import { Isin, SeriesCode, Tenor } from "../domain/primitives.ts";
-import { MonthlyReferenceIndex } from "../domain/reference-index.ts";
+import { Isin, SeriesName, Tenor } from "../domain/primitives.ts";
+import { InflationMonth } from "../domain/reference-index.ts";
 import { DayCell, DecimalCell, MonthCell, optionalCell } from "./cells.ts";
 import { type Cell, Table, Workbook, WorkbookError } from "./workbook.ts";
 
@@ -20,8 +21,7 @@ import { type Cell, Table, Workbook, WorkbookError } from "./workbook.ts";
  */
 
 export class Calculator extends Schema.Class<Calculator>("Calculator")({
-  referenceIndex: Schema.Array(MonthlyReferenceIndex),
-  types: Schema.Array(BondType),
+  referenceIndex: Schema.Array(InflationMonth),
   series: Schema.Array(WholesaleBondSeries),
 }) {}
 
@@ -30,38 +30,33 @@ const SHEETS = {
   wholesale: [
     {
       name: "Indeksowane",
-      description: "Inflation-linked bonds",
       rate: "fixed",
       nominal: "inflation-indexed",
-      types: ["IZ"],
+      prefixes: ["IZ"],
     },
     {
       name: "Stałe",
-      description: "Fixed rate bonds",
       rate: "fixed",
       nominal: "fixed",
-      types: ["OS", "PS", "DS", "WS", "AS", "TK", "CK", "PK", "DK", "SP"],
+      prefixes: ["OS", "PS", "DS", "WS", "AS", "TK", "CK", "PK", "DK", "SP"],
     },
     {
       name: "Zmienne",
-      description: "Floating rate bonds",
       rate: "floating",
       nominal: "fixed",
-      types: ["TZ", "WZ", "DZ", "PP", "NZ"],
+      prefixes: ["TZ", "WZ", "DZ", "PP", "NZ"],
     },
   ] as const satisfies ReadonlyArray<{
     name: string;
-    /** The Ministry's own English for the category (gov.pl/web/finance). */
-    description: string;
-    rate: BondType["rate"];
-    nominal: BondType["nominal"];
-    types: ReadonlyArray<WholesaleBondTypeCode>;
+    rate: RateKind;
+    nominal: NominalKind;
+    prefixes: ReadonlyArray<WholesaleSeriesPrefix>;
   }>,
   ignored: ["Kalkulator odsetek", "WVH"],
 } as const;
 type WholesaleSheet = (typeof SHEETS.wholesale)[number];
 
-/** 1990s rows with no proper series code. */
+/** 1990s rows with no proper Series Name. */
 const SKIPPED_ROW = /^PPT\d__$/;
 
 const ReferenceIndexRow = Schema.Struct({
@@ -71,7 +66,7 @@ const ReferenceIndexRow = Schema.Struct({
 });
 
 const SeriesRow = Schema.Struct({
-  Seria: SeriesCode,
+  Seria: SeriesName,
   "Kod ISIN": Isin,
   Wykup: DayCell,
 });
@@ -105,24 +100,9 @@ export const parseCalculator = Effect.fn("parseCalculator")(function* (bytes: Ui
   }
 
   const referenceIndex = yield* parseReferenceIndex(workbook);
-  const types: Array<BondType> = [];
   const series: Array<WholesaleBondSeries> = [];
-  for (const sheet of SHEETS.wholesale) {
-    for (const code of sheet.types) {
-      types.push(
-        new BondType({
-          code,
-          family: "wholesale",
-          description: sheet.description,
-          rate: sheet.rate,
-          nominal: sheet.nominal,
-          capitalises: false,
-        }),
-      );
-    }
-    series.push(...(yield* parseWholesale(workbook, sheet)));
-  }
-  return new Calculator({ referenceIndex, types, series });
+  for (const sheet of SHEETS.wholesale) series.push(...(yield* parseWholesale(workbook, sheet)));
+  return new Calculator({ referenceIndex, series });
 });
 
 const parseReferenceIndex = Effect.fn("parseReferenceIndex")(function* (workbook: Workbook) {
@@ -134,7 +114,7 @@ const parseReferenceIndex = Effect.fn("parseReferenceIndex")(function* (workbook
   // the chained level "Wskaźnik miesięczny" (Wn), not the other way round (CONTEXT.md)
   const months = rows.map(
     (row) =>
-      new MonthlyReferenceIndex({
+      new InflationMonth({
         month: row["Miesiąc / n"],
         rate: row["Wskaźnik referencyjny / WRk"],
         referenceIndex: row["Wskaźnik miesięczny / Wn"],
@@ -158,23 +138,23 @@ const parseWholesale = Effect.fn("parseWholesale")(function* (
 ) {
   const table = yield* Table.fromSheet(yield* workbook.sheet(sheet.name), 2);
   const periodColumns = groupColumns(table.columns, PERIOD_COLUMN);
-  const types: ReadonlyArray<string> = sheet.types;
+  const prefixes: ReadonlyArray<string> = sheet.prefixes;
   const bonds: Array<WholesaleBondSeries> = [];
   for (const record of table.records) {
-    const code = record[table.columns[0]!];
-    if (typeof code === "string" && SKIPPED_ROW.test(code)) continue;
+    const name = record[table.columns[0]!];
+    if (typeof name === "string" && SKIPPED_ROW.test(name)) continue;
     const row = yield* table.decode(record, SeriesRow);
-    const type = yield* Schema.decodeUnknownEffect(WholesaleBondTypeCode)(
+    const prefix = yield* Schema.decodeUnknownEffect(WholesaleSeriesPrefix)(
       row.Seria.replace(/\d+$/, ""),
     ).pipe(
       Effect.filterOrFail(
-        (type) => types.includes(type),
+        (prefix) => prefixes.includes(prefix),
         () => undefined,
       ),
       Effect.mapError(
         () =>
           new WorkbookError({
-            message: `Sheet "${sheet.name}": ${row.Seria} is not one of ${types.join(", ")}`,
+            message: `Sheet "${sheet.name}": ${row.Seria} is not one of ${prefixes.join(", ")}`,
           }),
       ),
     );
@@ -207,9 +187,12 @@ const parseWholesale = Effect.fn("parseWholesale")(function* (
     bonds.push(
       new WholesaleBondSeries({
         family: "wholesale",
-        code: row.Seria,
-        type,
+        series: row.Seria,
+        prefix,
         isin: row["Kod ISIN"],
+        rateKind: sheet.rate,
+        nominalKind: sheet.nominal,
+        capitalises: false,
         issueDay: Option.match(indexed, {
           onSome: (i) => i["Data emisji"],
           onNone: () => firstPeriod.start,
@@ -224,18 +207,18 @@ const parseWholesale = Effect.fn("parseWholesale")(function* (
   return bonds;
 });
 
-/** The dated periods of a row, and (for floating types) the rate announced for each. */
+/** The dated periods of a row, and (for floating-rate Series) the rate announced for each. */
 const couponPeriods = Effect.fn("couponPeriods")(function* (
   table: Table,
   record: Readonly<Record<string, Cell>>,
   periodColumns: ReadonlyArray<[number, Record<string, string>]>,
-  code: SeriesCode,
-  rate: BondType["rate"],
+  series: SeriesName,
+  rate: RateKind,
 ) {
   const dated: Array<DatedCouponPeriod> = [];
   const rates: Array<PeriodCouponRate> = [];
   for (const [number, columns] of periodColumns) {
-    const cells = yield* table.decode(pick(record, columns), PeriodDates, code);
+    const cells = yield* table.decode(pick(record, columns), PeriodDates, series);
     const dates = [
       cells["Początek okresu"],
       cells["Koniec okresu"],
@@ -245,7 +228,7 @@ const couponPeriods = Effect.fn("couponPeriods")(function* (
     if (dates.every(Option.isNone)) continue;
     if (!dates.every(Option.isSome)) {
       return yield* new WorkbookError({
-        message: `Sheet "${table.sheet}": ${code} coupon period ${number} is partly blank`,
+        message: `Sheet "${table.sheet}": ${series} coupon period ${number} is partly blank`,
       });
     }
     dated.push(

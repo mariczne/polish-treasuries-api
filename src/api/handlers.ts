@@ -3,7 +3,7 @@ import { HttpServerResponse } from "effect/unstable/http";
 import { HttpApiBuilder, HttpApiMiddleware } from "effect/unstable/httpapi";
 import { Treasuries } from "../treasuries.ts";
 import { Api, BadRequests, Cached, Health, type Period } from "./api.ts";
-import { BadRequest, IsinConflict, NotFound } from "./errors.ts";
+import { BadRequest } from "./errors.ts";
 
 /** Reads from what Treasuries currently serves; nothing is computed on the way out. */
 
@@ -14,13 +14,10 @@ export const InflationHandlers = HttpApiBuilder.group(
     const treasuries = yield* Treasuries;
     const inflation = Effect.map(treasuries.facts, (facts) => facts.inflation);
     return handlers.handleAll({
-      list: () => inflation,
-      period: Effect.fn(function* ({ params }) {
-        const months = yield* inflation;
-        const within = months.filter((row) => inPeriod(row.month, params.period));
-        if (within.length === 0) return yield* new NotFound();
-        return within;
-      }),
+      list: ({ query }) =>
+        Effect.map(inflation, (months) =>
+          months.filter((row) => query.period === undefined || inPeriod(row.month, query.period)),
+        ),
     });
   }),
 );
@@ -36,23 +33,16 @@ export const BondsHandlers = HttpApiBuilder.group(
     const treasuries = yield* Treasuries;
     const series = Effect.map(treasuries.facts, (facts) => facts.series);
     return handlers.handleAll({
-      types: () => Effect.map(treasuries.facts, (facts) => facts.types),
-      list: () => series,
-      byType: ({ params }) =>
-        Effect.map(series, (all) => all.filter((s) => s.type === params.type)),
-      byIsin: Effect.fn(function* ({ params }) {
-        const found = (yield* series).filter((s) => s.isin === params.isin);
-        if (found.length === 0) return yield* new NotFound();
-        if (found.length > 1) {
-          return yield* new IsinConflict({ isin: params.isin, codes: found.map((s) => s.code) });
-        }
-        return found[0]!;
-      }),
-      byCode: Effect.fn(function* ({ params }) {
-        const found = (yield* series).find((s) => s.code === params.code);
-        if (found === undefined) return yield* new NotFound();
-        return found;
-      }),
+      list: ({ query }) =>
+        Effect.map(series, (all) =>
+          all.filter(
+            (s) =>
+              (query.series === undefined || s.series === query.series) &&
+              (query.prefix === undefined || s.prefix === query.prefix) &&
+              (query.family === undefined || s.family === query.family) &&
+              (query.isin === undefined || s.isin === query.isin),
+          ),
+        ),
     });
   }),
 );
@@ -70,7 +60,7 @@ export const SystemHandlers = HttpApiBuilder.group(
             status: "ok",
             months: facts.inflation.length,
             latestMonth: facts.inflation.at(-1)?.month ?? null,
-            types: facts.types.length,
+            prefixes: new Set(facts.series.map((s) => s.prefix)).size,
             series: facts.series.length,
             files: yield* treasuries.status,
           });

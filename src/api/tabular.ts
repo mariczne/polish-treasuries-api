@@ -4,7 +4,7 @@ import type { Schema } from "effect";
  * A list of records as a spreadsheet would show it: one row per record, nested fields spread into
  * dotted columns (`saleWindow.from`), lists spread by position (`couponPeriods.1.start`) — or, for
  * lists of Coupon Periods, by the period number the Ministry announced them under
- * (`coupon.rates.3.rate`), so `/bonds/by-type/EDO.csv` reads like the Ministry's EDO sheet.
+ * (`coupon.rates.3.rate`), so `/bonds.csv?prefix=EDO` reads like the Ministry's EDO sheet.
  * Columns appear in the order they are first seen; a record that lacks a column leaves it blank.
  */
 

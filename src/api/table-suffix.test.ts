@@ -41,43 +41,37 @@ describe("table suffix", () => {
         "2003-07,-0.004,99.6",
       ]);
 
-      const tsv = yield* fetchText("/bonds/by-type/EDO.tsv");
+      const tsv = yield* fetchText("/bonds.tsv?prefix=EDO");
       expect(tsv.type).toContain("text/tab-separated-values");
       const [header, first] = tsv.text.split("\r\n");
       expect(header?.split("\t")).toContain("coupon.rates.10.rate");
       expect(first?.startsWith("savings\tEDO1014\tEDO\t")).toBe(true);
 
-      const one = yield* fetchText("/bonds/EDO0734.csv");
+      const one = yield* fetchText("/bonds.csv?series=EDO0734");
       expect(one.text.split("\r\n")).toHaveLength(3);
 
-      const month = yield* fetchText("/inflation/2026-08.csv");
+      const month = yield* fetchText("/inflation.csv?period=2026-08");
       expect(month.text).toBe("month,rate,referenceIndex\r\n2026-08,0.003,215.26519\r\n");
     }),
   );
 
-  it.live("errors and JSON stay as they are", () =>
+  it.live("errors, empty lists and JSON stay as they are", () =>
     Effect.gen(function* () {
       const root = yield* fetchText("/");
       expect(root.status).toBe(302);
       expect(root.location).toBe("/docs");
 
-      const invalid = yield* fetchText("/bonds/by-isin/foo");
+      const invalid = yield* fetchText("/bonds?isin=foo");
       expect(invalid.status).toBe(400);
       expect(invalid.text).toBe(
         '{"error":"BadRequest","issues":[{"message":"Expected a string matching the RegExp ^PL\\\\d{10}$","path":["isin"]}]}',
       );
 
-      const missing = yield* fetchText("/bonds/EDO9999.csv");
-      expect(missing.status).toBe(404);
-      expect(missing.text).toBe('{"error":"NotFound"}');
+      const none = yield* fetchText("/bonds.csv?series=EDO9999");
+      expect(none.status).toBe(200);
+      expect(none.text).toBe("\r\n");
 
-      const conflict = yield* fetchText("/bonds/by-isin/PL0000113890");
-      expect(conflict.status).toBe(502);
-      expect(conflict.text).toBe(
-        '{"error":"IsinConflict","isin":"PL0000113890","codes":["TOS0825","DOS0823"]}',
-      );
-
-      const json = yield* fetchText("/inflation/2026-08");
+      const json = yield* fetchText("/inflation?period=2026-08");
       expect(json.type).toContain("json");
       expect(json.text.startsWith("[{")).toBe(true);
 
@@ -96,19 +90,20 @@ describe("table suffix", () => {
         false,
       );
       expect(doc.text).not.toContain('"_tag"');
+      expect(doc.text).not.toMatch(/"(404|502)"/);
     }),
   );
 
   it.live("data is cacheable and revalidates by ETag; health is not cached", () =>
     Effect.gen(function* () {
-      const json = yield* fetchText("/bonds/EDO0734");
+      const json = yield* fetchText("/bonds?series=EDO0734");
       expect(json.cacheControl).toBe("public, max-age=3600");
       expect(json.etag).toMatch(/^W\/".+"$/);
 
-      const csv = yield* fetchText("/bonds/EDO0734.csv");
+      const csv = yield* fetchText("/bonds.csv?series=EDO0734");
       expect(csv.etag).not.toBe(json.etag);
 
-      const held = yield* fetchText("/bonds/EDO0734.csv", { "if-none-match": csv.etag! });
+      const held = yield* fetchText("/bonds.csv?series=EDO0734", { "if-none-match": csv.etag! });
       expect(held.status).toBe(304);
       expect(held.text).toBe("");
 

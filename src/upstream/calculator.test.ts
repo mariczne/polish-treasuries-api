@@ -34,25 +34,22 @@ describe("parseCalculator", () => {
 
   it.effect("reads the four IZ series with their coupon periods", () =>
     Effect.gen(function* () {
-      const { types, series } = yield* parsed;
-      expect(types.map((type) => type.code)).toContain("IZ");
-      expect(types.find((type) => type.code === "IZ")).toMatchObject({
-        family: "wholesale",
-        rate: "fixed",
-        nominal: "inflation-indexed",
-      });
-      const inflationLinkedBonds = series.filter((bond) => bond.type === "IZ");
-      expect(inflationLinkedBonds.map((bond) => bond.code)).toEqual([
+      const { series } = yield* parsed;
+      const inflationLinkedBonds = series.filter((bond) => bond.prefix === "IZ");
+      expect(inflationLinkedBonds.map((bond) => bond.series)).toEqual([
         "IZ0816",
         "IZ0823",
         "IZ0831",
         "IZ0836",
       ]);
-      const iz0836 = inflationLinkedBonds.find((bond) => bond.code === "IZ0836")!;
+      const iz0836 = inflationLinkedBonds.find((bond) => bond.series === "IZ0836")!;
       expect(iz0836).toMatchObject({
         family: "wholesale",
-        type: "IZ",
+        prefix: "IZ",
         isin: "PL0000117024",
+        rateKind: "fixed",
+        nominalKind: "inflation-indexed",
+        capitalises: false,
         issueDay: "2023-08-25",
         maturity: "2036-08-25",
       });
@@ -72,55 +69,57 @@ describe("parseCalculator", () => {
         end: "2036-08-25",
         paymentDate: "2036-08-25",
       });
-      const iz0816 = inflationLinkedBonds.find((bond) => bond.code === "IZ0816")!;
+      const iz0816 = inflationLinkedBonds.find((bond) => bond.series === "IZ0816")!;
       expect(iz0816.couponPeriods).toHaveLength(12);
     }),
   );
 
   it.effect("reads the fixed-rate and floating-rate wholesale series", () =>
     Effect.gen(function* () {
-      const { types, series } = yield* parsed;
-      expect(types.map((type) => type.code)).toEqual([
-        "IZ",
-        "OS",
-        "PS",
-        "DS",
-        "WS",
-        "AS",
-        "TK",
-        "CK",
-        "PK",
-        "DK",
-        "SP",
-        "TZ",
-        "WZ",
-        "DZ",
-        "PP",
-        "NZ",
-      ]);
+      const { series } = yield* parsed;
+      expect(new Set(series.map((s) => s.prefix))).toEqual(
+        new Set([
+          "IZ",
+          "OS",
+          "PS",
+          "DS",
+          "WS",
+          "AS",
+          "TK",
+          "CK",
+          "PK",
+          "DK",
+          "SP",
+          "TZ",
+          "WZ",
+          "DZ",
+          "PP",
+          "NZ",
+        ]),
+      );
       expect(series).toHaveLength(4 + 122 + 113);
-      expect(series.some((bond) => bond.code.startsWith("PPT"))).toBe(false);
+      expect(series.some((bond) => bond.series.startsWith("PPT"))).toBe(false);
 
-      const ws0447 = series.find((bond) => bond.code === "WS0447")!;
+      const ws0447 = series.find((bond) => bond.series === "WS0447")!;
       expect(ws0447).toMatchObject({
-        type: "WS",
+        prefix: "WS",
         isin: "PL0000109765",
         maturity: "2047-04-25",
         issueDay: "2016-04-25",
       });
       expect(ws0447.coupon.schedule === "fixed" && equals(ws0447.coupon.rate, "0.04")).toBe(true);
       expect(ws0447.coupon.periodLength).toBe("P1Y");
-      expect(series.find((b) => b.code === "IZ0836")!.coupon.periodLength).toBe("P1Y");
+      expect(series.find((b) => b.series === "IZ0836")!.coupon.periodLength).toBe("P1Y");
       expect(Option.isNone(ws0447.baseReferenceIndex)).toBe(true);
       expect(ws0447.couponPeriods).toHaveLength(31);
 
-      const nz0936 = series.find((bond) => bond.code === "NZ0936")!;
-      expect(nz0936.type).toBe("NZ");
+      const nz0936 = series.find((bond) => bond.series === "NZ0936")!;
+      expect(nz0936.prefix).toBe("NZ");
       if (nz0936.coupon.schedule !== "per-period") throw new Error("NZ0936 should be per period");
       expect(nz0936.coupon.periodLength).toBe("P6M");
       expect(nz0936.couponPeriods.length).toBe(22);
 
-      const lengths = (code: string) => series.find((b) => b.code === code)!.coupon.periodLength;
+      const lengths = (code: string) => series.find((b) => b.series === code)!.coupon.periodLength;
       expect(lengths("WZ1131")).toBe("P6M");
       expect(lengths("DZ1205")).toBe("P1Y");
       expect(lengths("TZ0897")).toBe("P3M");

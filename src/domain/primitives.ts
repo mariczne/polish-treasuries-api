@@ -47,12 +47,13 @@ export const Isin = Schema.String.check(Schema.isPattern(/^PL\d{10}$/))
   .pipe(Schema.brand("Isin"));
 export type Isin = typeof Isin.Type;
 
-/** The code the Ministry gives a Series and everyone uses for it: `EDO0734`, `IZ0836`. */
-export const SeriesCode = Schema.String.check(Schema.isPattern(/^[A-Z]{2,3}\d{4}$/))
+/** CONTEXT.md "Series Name": the Series Prefix, then the month and year of maturity. */
+export const SeriesName = Schema.String.check(Schema.isPattern(/^[A-Z]{2,3}\d{4}$/))
   .annotate({
-    identifier: "SeriesCode",
-    description: "The Ministry's code for a Series",
+    identifier: "SeriesName",
+    description:
+      "The Ministry's name for a Series: its Series Prefix, then the month and year of maturity",
     examples: ["EDO0734", "IZ0836"],
   })
-  .pipe(Schema.brand("SeriesCode"));
-export type SeriesCode = typeof SeriesCode.Type;
+  .pipe(Schema.brand("SeriesName"));
+export type SeriesName = typeof SeriesName.Type;

@@ -1,11 +1,10 @@
 import { Schema } from "effect";
-import { CalendarDay, Decimal, Isin, SeriesCode, Tenor } from "./primitives.ts";
+import { CalendarDay, Decimal, Isin, SeriesName, Tenor } from "./primitives.ts";
 
-/** CONTEXT.md "Family". */
 export const Family = Schema.Literals(["savings", "wholesale"]).annotate({ identifier: "Family" });
 export type Family = typeof Family.Type;
 
-export const SavingsBondTypeCode = Schema.Literals([
+export const SavingsSeriesPrefix = Schema.Literals([
   "OTS",
   "ROR",
   "DOR",
@@ -17,10 +16,10 @@ export const SavingsBondTypeCode = Schema.Literals([
   "DOS",
   "TOZ",
   "POS",
-]).annotate({ identifier: "SavingsBondTypeCode" });
-export type SavingsBondTypeCode = typeof SavingsBondTypeCode.Type;
+]).annotate({ identifier: "SavingsSeriesPrefix" });
+export type SavingsSeriesPrefix = typeof SavingsSeriesPrefix.Type;
 
-export const WholesaleBondTypeCode = Schema.Literals([
+export const WholesaleSeriesPrefix = Schema.Literals([
   "IZ",
   "OS",
   "PS",
@@ -37,34 +36,31 @@ export const WholesaleBondTypeCode = Schema.Literals([
   "DZ",
   "PP",
   "NZ",
-]).annotate({ identifier: "WholesaleBondTypeCode" });
-export type WholesaleBondTypeCode = typeof WholesaleBondTypeCode.Type;
+]).annotate({ identifier: "WholesaleSeriesPrefix" });
+export type WholesaleSeriesPrefix = typeof WholesaleSeriesPrefix.Type;
 
-export const BondTypeCode = Schema.Union([SavingsBondTypeCode, WholesaleBondTypeCode]).annotate({
-  identifier: "BondTypeCode",
+/** One flat list, so a filter on it documents and rejects as one enum. */
+export const SeriesPrefix = Schema.Literals([
+  ...SavingsSeriesPrefix.literals,
+  ...WholesaleSeriesPrefix.literals,
+]).annotate({
+  identifier: "SeriesPrefix",
+  description: "The letters of a Series Name: `EDO` in `EDO0734`",
+  examples: ["EDO"],
 });
-export type BondTypeCode = typeof BondTypeCode.Type;
+export type SeriesPrefix = typeof SeriesPrefix.Type;
 
+/** How the Coupon Rate is set: once for good, from a reference rate, or from inflation. */
 export const RateKind = Schema.Literals(["fixed", "floating", "inflation-indexed"]).annotate({
   identifier: "RateKind",
 });
+export type RateKind = typeof RateKind.Type;
 
-/** Whether a type's nominal is indexed to inflation (IZ) or stays at face value. */
+/** Whether the nominal is indexed to inflation (IZ) or stays at face value. */
 export const NominalKind = Schema.Literals(["fixed", "inflation-indexed"]).annotate({
   identifier: "NominalKind",
 });
-
-/** What a letter of issue says about every Series of a type (CONTEXT.md "Bond Type"). */
-export class BondType extends Schema.Class<BondType>("BondType")({
-  code: BondTypeCode,
-  family: Family,
-  /** The Ministry's own English wording for the type. */
-  description: Schema.String,
-  rate: RateKind,
-  nominal: NominalKind,
-  /** Interest is added to the nominal each period (else paid out to the holder). */
-  capitalises: Schema.Boolean,
-}) {}
+export type NominalKind = typeof NominalKind.Type;
 
 /**
  * How long a regular Coupon Period is: `P1Y`, `P1M`, `P6M`. For a Savings Bond it is the letter of
@@ -111,12 +107,16 @@ export class SaleWindow extends Schema.Class<SaleWindow>("SaleWindow")({
   to: CalendarDay,
 }) {}
 
-/** One issue of a Savings Bond type (CONTEXT.md "Series"): sale terms and coupon. */
+/** One month's sale of a Savings Bond (CONTEXT.md "Series"): sale terms and coupon. */
 export class SavingsBondSeries extends Schema.Class<SavingsBondSeries>("SavingsBondSeries")({
   family: Schema.Literal("savings"),
-  code: SeriesCode,
-  type: SavingsBondTypeCode,
+  series: SeriesName,
+  prefix: SavingsSeriesPrefix,
   isin: Isin,
+  rateKind: RateKind,
+  nominalKind: Schema.Literal("fixed"),
+  /** Interest is added to the nominal each period (else paid out to the holder). */
+  capitalises: Schema.Boolean,
   /** Maturity as the Ministry states it: so long after the purchase day. */
   tenor: Tenor,
   saleWindow: SaleWindow,
@@ -147,18 +147,22 @@ export class DatedCouponPeriod extends Schema.Class<DatedCouponPeriod>("DatedCou
 /** One Wholesale Bond Series (CONTEXT.md "Series"): its terms as the letter of issue fixed them. */
 export class WholesaleBondSeries extends Schema.Class<WholesaleBondSeries>("WholesaleBondSeries")({
   family: Schema.Literal("wholesale"),
-  code: SeriesCode,
-  type: WholesaleBondTypeCode,
+  series: SeriesName,
+  prefix: WholesaleSeriesPrefix,
   isin: Isin,
+  rateKind: RateKind,
+  nominalKind: NominalKind,
+  /** Always false: a Wholesale Bond pays its interest out. */
+  capitalises: Schema.Literal(false),
   /**
-   * The day the bond was issued. Stated in the file only for IZ; for every other type it is the
+   * The day the bond was issued. Stated in the file only for IZ; for every other Series Prefix it is the
    * first Coupon Period's start — one of the two figures in this API not copied from a cell (see
    * `periodLength`).
    */
   issueDay: CalendarDay,
   maturity: CalendarDay,
   coupon: Coupon,
-  /** The Base Reference Index the letter of issue fixed, for types whose nominal is indexed. */
+  /** The Base Reference Index the letter of issue fixed, for Series whose nominal is indexed. */
   baseReferenceIndex: Schema.OptionFromNullOr(Decimal),
   couponPeriods: Schema.Array(DatedCouponPeriod),
 }) {}
