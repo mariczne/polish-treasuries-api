@@ -20,5 +20,5 @@ COPY --chown=node:node fixtures ./fixtures
 VOLUME ["/data"]
 EXPOSE 3000
 HEALTHCHECK --interval=1m --timeout=5s --start-period=30s \
-  CMD wget -qO- http://127.0.0.1:3000/health >/dev/null || exit 1
+  CMD wget -qO- http://127.0.0.1:3000/v1/health >/dev/null || exit 1
 CMD ["nub", "src/index.ts"]

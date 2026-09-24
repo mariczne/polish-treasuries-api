@@ -76,7 +76,7 @@ export class BondsApi extends HttpApiGroup.make("bonds")
       .annotateMerge(
         OpenApi.annotations({
           description:
-            "Every Series, or those matching all the filters given: `/bonds?prefix=EDO`, `/bonds?series=EDO0734`, `/bonds?isin=PL0000117081`. The Ministry's file has a few ISINs on more than one Series; those return every one.",
+            "Every Series, or those matching all the filters given: `/v1/bonds?prefix=EDO`, `/v1/bonds?series=EDO0734`, `/v1/bonds?isin=PL0000117081`. The Ministry's file has a few ISINs on more than one Series; those return every one.",
         }),
       ),
   )
@@ -124,6 +124,7 @@ export class Api extends HttpApi.make("polish-treasuries")
   .add(BondsApi)
   .add(InflationApi)
   .add(SystemApi)
+  .prefix("/v1")
   .annotateMerge(
     OpenApi.annotations({
       title: "Polish Treasuries API",

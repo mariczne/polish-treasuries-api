@@ -13,14 +13,16 @@ Sources: `kalkulatorodsetek.xlsm` ([kalkulatory2](https://www.gov.pl/web/finanse
 ## Endpoints
 
 ```
-GET /inflation  /inflation?period=2026  /inflation?period=2026-02
-GET /bonds  /bonds?series=EDO0734  /bonds?prefix=EDO  /bonds?family=savings  /bonds?isin=PL0000117081
-GET /health  /openapi.json  /docs
+GET /v1/inflation  /v1/inflation?period=2026  /v1/inflation?period=2026-02
+GET /v1/bonds  /v1/bonds?series=EDO0734  /v1/bonds?prefix=EDO  /v1/bonds?family=savings
+GET /v1/bonds?isin=PL0000117081
+GET /v1/health
+GET /openapi.json  /docs
 ```
 
 Every read returns a list, `[]` when nothing matches; only a malformed parameter is an error (400).
 Filters on `/bonds` combine. Append `.csv` or `.tsv` to the path to get the same data as a table:
-`/bonds.csv?prefix=EDO`.
+`/v1/bonds.csv?prefix=EDO`.
 
 Decimals are strings, amounts are PLN, days are `YYYY-MM-DD` and tenors are ISO 8601 (`P10Y`). A
 rate the Ministry has not announced yet is left out. Two wholesale fields are read off other cells
