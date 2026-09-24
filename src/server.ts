@@ -6,17 +6,13 @@ import { HttpApiBuilder, HttpApiScalar, OpenApi } from "effect/unstable/httpapi"
 // @effect-diagnostics-next-line nodeBuiltinImport:off
 import { createServer } from "node:http";
 import { Api } from "./api/api.ts";
+import { Etag } from "./api/etag.ts";
 import { ApiHandlers } from "./api/handlers.ts";
 import { TableSuffix } from "./api/table-suffix.ts";
 import { Upstream } from "./upstream/download.ts";
 import { Treasuries } from "./treasuries.ts";
 
 export const Port = Config.Port("PORT").pipe(Config.withDefault(3000));
-
-/** Reads are public and cacheable; the store changes at most once a day. */
-const CacheHeaders = HttpRouter.middleware((httpEffect) =>
-  Effect.map(httpEffect, HttpServerResponse.setHeader("cache-control", "public, max-age=3600")),
-).layer;
 
 export const BasePath = Config.schema(
   Schema.String.check(Schema.isPattern(/^(\/[^/]+)*$/)),
@@ -28,15 +24,15 @@ export const Routes = Layer.unwrap(
     const basePath = yield* BasePath;
     const api = basePath === "" ? Api : Api.annotate(OpenApi.Servers, [{ url: basePath }]);
     return Layer.mergeAll(
-      HttpApiBuilder.layer(api, { openapiPath: "/openapi.json" }).pipe(
-        Layer.provide(ApiHandlers),
-        Layer.provide(CacheHeaders),
-      ),
+      HttpApiBuilder.layer(api, { openapiPath: "/openapi.json" }).pipe(Layer.provide(ApiHandlers)),
       HttpApiScalar.layer(api, { path: "/docs" }),
       HttpRouter.add("GET", "/", HttpServerResponse.redirect(`${basePath}/docs`)),
     );
   }),
 );
+
+/** Global middleware added first wraps the rest: Etag must hash the table, not the JSON. */
+export const Middleware = TableSuffix.pipe(Layer.provide(Etag));
 
 export const Services = Treasuries.layer.pipe(
   Layer.provide(Upstream.layer),
@@ -44,8 +40,8 @@ export const Services = Treasuries.layer.pipe(
   Layer.provideMerge(Layer.mergeAll(NodeFileSystem.layer, NodePath.layer)),
 );
 
-export const Server = HttpRouter.serve(Layer.mergeAll(Routes, TableSuffix, Treasuries.scheduled), {
-  middleware: HttpMiddleware.cors(),
+export const Server = HttpRouter.serve(Layer.mergeAll(Routes, Middleware, Treasuries.scheduled), {
+  middleware: (app) => app.pipe(HttpMiddleware.compression(), HttpMiddleware.cors()),
 }).pipe(
   Layer.provide(
     Layer.unwrap(Effect.map(Port, (port) => NodeHttpServer.layer(createServer, { port }))),

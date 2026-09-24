@@ -1,15 +1,29 @@
 import { Predicate, Schema } from "effect";
-import { HttpApi, HttpApiEndpoint, HttpApiGroup, OpenApi } from "effect/unstable/httpapi";
+import {
+  HttpApi,
+  HttpApiEndpoint,
+  HttpApiGroup,
+  HttpApiMiddleware,
+  OpenApi,
+} from "effect/unstable/httpapi";
 import { BondSeries, BondType, BondTypeCode } from "../domain/bond.ts";
 import { Isin, SeriesCode, YearMonth } from "../domain/primitives.ts";
 import { MonthlyReferenceIndex } from "../domain/reference-index.ts";
 import { FileStatus } from "../treasuries.ts";
-import { NotFound, IsinConflict, wireError } from "./errors.ts";
+import { BadRequest, IsinConflict, NotFound, wireError } from "./errors.ts";
 
 /**
  * The API as clients see it. Every endpoint also answers as a table when the path ends in `.csv`
  * or `.tsv` (see `table-suffix.ts`); only the JSON paths are documented.
  */
+
+/** Data changes at most once a day, so its reads are public and cacheable; `/health` is not. */
+export class Cached extends HttpApiMiddleware.Service<Cached>()("api/Cached") {}
+
+/** Turns Effect's empty 400 for a path parameter that does not decode into a `BadRequest`. */
+export class BadRequests extends HttpApiMiddleware.Service<BadRequests>()("api/BadRequests", {
+  error: wireError(BadRequest),
+}) {}
 
 export const Year = Schema.String.check(Schema.isPattern(/^\d{4}$/))
   .annotate({ identifier: "Year", examples: ["2026"] })
@@ -33,13 +47,16 @@ export class InflationApi extends HttpApiGroup.make("inflation")
       params: { period: Period },
       success: Schema.Array(MonthlyReferenceIndex),
       error: wireError(NotFound),
-    }).annotateMerge(
-      OpenApi.annotations({
-        description:
-          "The months of one year (`/inflation/2026`) or one month (`/inflation/2026-02`).",
-      }),
-    ),
+    })
+      .middleware(BadRequests)
+      .annotateMerge(
+        OpenApi.annotations({
+          description:
+            "The months of one year (`/inflation/2026`) or one month (`/inflation/2026-02`).",
+        }),
+      ),
   )
+  .middleware(Cached)
   .annotateMerge(
     OpenApi.annotations({
       title: "Inflation",
@@ -62,22 +79,29 @@ export class BondsApi extends HttpApiGroup.make("bonds")
     HttpApiEndpoint.get("byType", "/bonds/by-type/:type", {
       params: { type: BondTypeCode },
       success: Schema.Array(BondSeries),
-    }).annotateMerge(OpenApi.annotations({ description: "The Series of one Bond Type." })),
+    })
+      .middleware(BadRequests)
+      .annotateMerge(OpenApi.annotations({ description: "The Series of one Bond Type." })),
     HttpApiEndpoint.get("byIsin", "/bonds/by-isin/:isin", {
       params: { isin: Isin },
       success: BondSeries,
       error: [wireError(NotFound), wireError(IsinConflict)],
-    }).annotateMerge(
-      OpenApi.annotations({ description: "One Series by its ISIN, e.g. `PL0000117081`." }),
-    ),
+    })
+      .middleware(BadRequests)
+      .annotateMerge(
+        OpenApi.annotations({ description: "One Series by its ISIN, e.g. `PL0000117081`." }),
+      ),
     HttpApiEndpoint.get("byCode", "/bonds/:code", {
       params: { code: SeriesCode },
       success: BondSeries,
       error: wireError(NotFound),
-    }).annotateMerge(
-      OpenApi.annotations({ description: "One Series by its code, e.g. `EDO0734` or `IZ0836`." }),
-    ),
+    })
+      .middleware(BadRequests)
+      .annotateMerge(
+        OpenApi.annotations({ description: "One Series by its code, e.g. `EDO0734` or `IZ0836`." }),
+      ),
   )
+  .middleware(Cached)
   .annotateMerge(
     OpenApi.annotations({
       title: "Bonds",

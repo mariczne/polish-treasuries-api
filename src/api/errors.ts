@@ -1,6 +1,19 @@
 import { Schema } from "effect";
 import { Isin, SeriesCode } from "../domain/primitives.ts";
 
+/** One way a request failed to decode, e.g. `{ message: "Expected …", path: ["isin"] }`. */
+export const Issue = Schema.Struct({
+  message: Schema.String,
+  path: Schema.Array(Schema.String),
+}).annotate({ identifier: "Issue" });
+
+/** A path parameter that does not decode; the issues are the schema's own. */
+export class BadRequest extends Schema.TaggedError<BadRequest>()(
+  "BadRequest",
+  { issues: Schema.Array(Issue) },
+  { httpApiStatus: 400 },
+) {}
+
 export class NotFound extends Schema.TaggedError<NotFound>()(
   "NotFound",
   {},

@@ -1,28 +1,29 @@
 import { describe, expect, it } from "@effect/vitest";
 import { Effect, Layer, Schema } from "effect";
 import { HttpRouter, HttpServer } from "effect/unstable/http";
-import { Routes } from "../server.ts";
+import { Middleware, Routes } from "../server.ts";
 import { TestServices } from "../test-services.ts";
-import { TableSuffix } from "./table-suffix.ts";
 
-const app = Layer.mergeAll(Routes, TableSuffix).pipe(
+const app = Layer.mergeAll(Routes, Middleware).pipe(
   Layer.provide(HttpServer.layerServices),
   Layer.provideMerge(TestServices),
 );
 
-const fetchText = (path: string) =>
+const fetchText = (path: string, headers: Record<string, string> = {}) =>
   Effect.acquireUseRelease(
     Effect.sync(() => HttpRouter.toWebHandler(app, { disableLogger: true })),
     ({ handler }) =>
       Effect.gen(function* () {
         const response = yield* Effect.promise(() =>
-          handler(new Request(`http://localhost${path}`)),
+          handler(new Request(`http://localhost${path}`, { headers })),
         );
         const text = yield* Effect.promise(() => response.text());
         return {
           status: response.status,
           type: response.headers.get("content-type"),
           location: response.headers.get("location"),
+          etag: response.headers.get("etag"),
+          cacheControl: response.headers.get("cache-control"),
           text,
         };
       }),
@@ -60,6 +61,12 @@ describe("table suffix", () => {
       expect(root.status).toBe(302);
       expect(root.location).toBe("/docs");
 
+      const invalid = yield* fetchText("/bonds/by-isin/foo");
+      expect(invalid.status).toBe(400);
+      expect(invalid.text).toBe(
+        '{"error":"BadRequest","issues":[{"message":"Expected a string matching the RegExp ^PL\\\\d{10}$","path":["isin"]}]}',
+      );
+
       const missing = yield* fetchText("/bonds/EDO9999.csv");
       expect(missing.status).toBe(404);
       expect(missing.text).toBe('{"error":"NotFound"}');
@@ -89,6 +96,24 @@ describe("table suffix", () => {
         false,
       );
       expect(doc.text).not.toContain('"_tag"');
+    }),
+  );
+
+  it.live("data is cacheable and revalidates by ETag; health is not cached", () =>
+    Effect.gen(function* () {
+      const json = yield* fetchText("/bonds/EDO0734");
+      expect(json.cacheControl).toBe("public, max-age=3600");
+      expect(json.etag).toMatch(/^W\/".+"$/);
+
+      const csv = yield* fetchText("/bonds/EDO0734.csv");
+      expect(csv.etag).not.toBe(json.etag);
+
+      const held = yield* fetchText("/bonds/EDO0734.csv", { "if-none-match": csv.etag! });
+      expect(held.status).toBe(304);
+      expect(held.text).toBe("");
+
+      const health = yield* fetchText("/health");
+      expect(health.cacheControl).toBeNull();
     }),
   );
 });
