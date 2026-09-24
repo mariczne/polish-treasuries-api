@@ -144,6 +144,11 @@ _Avoid_: base index, base CPI, inflation base
 The Reference Index for a day over the Base Reference Index — how far prices have moved since
 issue. Derived from the two by the Ministry's rule; this service does not serve it, clients
 compute it from the figures above.
+_Rule_: for day d of month m, which has D days,
+SI = round₅((W₍ₘ₋₃₎ + (d−1)/D · (W₍ₘ₋₂₎ − W₍ₘ₋₃₎)) / WB), with W the Reference Index as published
+(five decimals) and WB the Base Reference Index. The numerator is the Reference Index of three
+months before, moved day by day toward that of two months before. The Reference Index itself is
+Wₙ = 100 · ∏(1 + WRₖ), rounded half-up to five decimals.
 _Polish_: SI, the letter's symbol
 _Avoid_: index ratio, indexation (alone), coefficient (alone)
 
