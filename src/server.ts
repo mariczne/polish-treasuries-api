@@ -25,12 +25,14 @@ export const Routes = Layer.unwrap(
     const api = basePath === "" ? Api : Api.annotate(OpenApi.Servers, [{ url: basePath }]);
     return Layer.mergeAll(
       HttpApiBuilder.layer(api, { openapiPath: "/openapi.json" }).pipe(Layer.provide(ApiHandlers)),
-      HttpApiScalar.layer(api, {
+      HttpApiScalar.layerCdn(api, {
         path: "/docs",
+        version: "1.70.0",
         scalar: {
-          defaultOpenAllTags: true,
           //@ts-expect-error
           expandAllResponses: true,
+          defaultOpenAllTags: true,
+          theme: "solarized",
           favicon: `data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏦</text></svg>`,
         },
       }),
