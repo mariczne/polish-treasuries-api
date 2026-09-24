@@ -35,7 +35,7 @@ describe("docs examples", () => {
 
   it.effect("health example decodes", () =>
     Effect.gen(function* () {
-      expect(yield* Schema.decodeUnknownEffect(Health)(healthExample)).toBeInstanceOf(Health);
+      expect(yield* Schema.decodeEffect(Health)(healthExample)).toBeInstanceOf(Health);
     }),
   );
 });
