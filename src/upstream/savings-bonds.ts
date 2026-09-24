@@ -36,6 +36,7 @@ interface PrefixSpec {
   readonly prefix: SavingsSeriesPrefix;
   readonly tenors: ReadonlyArray<Duration>;
   readonly headerRows: 1 | 2;
+  /** From the letters of issue, not the file: not served yet (see `SavingsBondSeries`). */
   readonly capitalises: boolean;
   readonly shape: CouponShape;
 }
@@ -208,7 +209,7 @@ const parseSheet = Effect.fn("parseSheet")(function* (workbook: Workbook, spec: 
         series: row.Seria,
         prefix: spec.prefix,
         isin: row["Kod ISIN"],
-        capitalises: spec.capitalises,
+        // capitalises: spec.capitalises,
         tenor: row["Data wykupu"],
         saleWindow: new SaleWindow({
           from: row["Początek sprzedaży"],

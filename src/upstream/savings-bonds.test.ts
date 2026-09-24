@@ -48,10 +48,10 @@ describe("parseSavingsBonds", () => {
       expect(series.find((s) => s.series === "EDO0734")).toMatchObject({
         family: "savings",
         nominal: { indexation: "none" },
-        capitalises: true,
       });
-      expect(series.find((s) => s.prefix === "ROR")).toMatchObject({
-        capitalises: false,
+      expect(series.find((s) => s.prefix === "ROR")?.coupon).toMatchObject({
+        schedule: "per-period",
+        periodLength: "P1M",
       });
     }),
   );

@@ -2,11 +2,11 @@
 
 The terms of Polish Treasury bonds and the inflation figures used to index them, exactly as the
 Ministry of Finance publishes them in its spreadsheets — served as an ordinary documented API.
-Nothing here is computed: every figure is one the Ministry wrote down. Vocabulary follows the
-Ministry's letters of issue (_listy emisyjne_), in English, and coincides with the German and
-Japanese conventions for the same constructs. Where the Polish is not obvious, _Polish_ gives the
-Ministry's wording as its files and letters use it, so it can be recognised at the source; in code
-and docs, use the English term.
+Nothing here is calculated: every figure is one the Ministry wrote down, at most re-expressed
+(millions of PLN as PLN). Vocabulary follows the Ministry's letters of issue (_listy emisyjne_), in
+English, and coincides with the German and Japanese conventions for the same constructs. Where the
+Polish is not obvious, _Polish_ gives the Ministry's wording as its files and letters use it, so it
+can be recognised at the source; in code and docs, use the English term.
 
 ## Language
 

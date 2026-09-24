@@ -144,8 +144,9 @@ export class SavingsBondSeries extends Schema.Class<SavingsBondSeries>("SavingsB
   series: SeriesName,
   prefix: SavingsSeriesPrefix,
   isin: Isin,
-  /** Interest is added to the nominal each period (else paid out to the holder). */
-  capitalises: Schema.Boolean,
+  // Whether interest is added to the nominal each period comes from the letters of issue, not
+  // the file; served once the letters are a source.
+  // capitalises: Schema.Boolean,
   /** Maturity as the Ministry states it: so long after the purchase day. */
   tenor: Duration,
   saleWindow: SaleWindow,
