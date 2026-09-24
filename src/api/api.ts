@@ -11,6 +11,7 @@ import { Isin, SeriesName, YearMonth } from "../domain/primitives.ts";
 import { InflationMonth } from "../domain/reference-index.ts";
 import { FileStatus } from "../treasuries.ts";
 import { BadRequest, wireError } from "./errors.ts";
+import { bondsExample, healthExample, inflationExample } from "./examples.ts";
 
 /**
  * The API as clients see it. Every read is a list, narrowed by its query; nothing matching
@@ -28,24 +29,29 @@ export class BadRequests extends HttpApiMiddleware.Service<BadRequests>()("api/B
 }) {}
 
 export const Year = Schema.String.check(Schema.isPattern(/^\d{4}$/))
-  .annotate({ identifier: "Year", examples: ["2026"] })
+  .annotate({ identifier: "Year", description: "YYYY", examples: ["2026"] })
   .pipe(Schema.brand("Year"));
 
 /** A year (`2026`) or a month (`2026-02`). */
-export const Period = Schema.Union([Year, YearMonth]).annotate({ identifier: "Period" });
+export const Period = Schema.Union([Year, YearMonth]).annotate({
+  identifier: "Period",
+  description: "A year (YYYY) or a month (YYYY-MM)",
+});
 export type Period = typeof Period.Type;
 
 export class InflationApi extends HttpApiGroup.make("inflation")
   .add(
     HttpApiEndpoint.get("list", "/inflation", {
       query: { period: Schema.optionalKey(Period) },
-      success: Schema.Array(InflationMonth),
+      success: Schema.Array(InflationMonth).pipe(
+        Schema.annotateEncoded({ examples: [inflationExample] }),
+      ),
     })
       .middleware(BadRequests)
       .annotateMerge(
         OpenApi.annotations({
           description:
-            "Every month since July 2003, or those of one year (`?period=2026`) or one month (`?period=2026-02`): the month's price change as a rate (Monthly Reference Index) and the level reached (Reference Index).",
+            "Monthly inflation since July 2003, optionally for one year or month (`?period=2026`, `?period=2026-02`). `referenceIndex` is cumulative, June 2003 = 100.",
         }),
       ),
   )
@@ -54,7 +60,7 @@ export class InflationApi extends HttpApiGroup.make("inflation")
     OpenApi.annotations({
       title: "Inflation",
       description: [
-        "The inflation series the Ministry uses to index bonds.",
+        "The inflation index that inflation-linked bonds use.",
         "",
         "_Note: it differs from the CPI reported by GUS. Every March GUS can revise its figure for January; the Ministry keeps the figure it first fixed._",
       ].join("\n"),
@@ -70,13 +76,13 @@ export class BondsApi extends HttpApiGroup.make("bonds")
         family: Schema.optionalKey(Family),
         isin: Schema.optionalKey(Isin),
       },
-      success: Schema.Array(BondSeries),
+      success: Schema.Array(BondSeries).pipe(Schema.annotateEncoded({ examples: [bondsExample] })),
     })
       .middleware(BadRequests)
       .annotateMerge(
         OpenApi.annotations({
           description:
-            "Every Series, or those matching all the filters given: `/v1/bonds?prefix=EDO`, `/v1/bonds?series=EDO0734`, `/v1/bonds?isin=PL0000117081`. The Ministry's file has a few ISINs on more than one Series; those return every one.",
+            "All series, or those matching every filter given (`?series=EDO0734&family=savings`).",
         }),
       ),
   )
@@ -84,7 +90,7 @@ export class BondsApi extends HttpApiGroup.make("bonds")
   .annotateMerge(
     OpenApi.annotations({
       title: "Bonds",
-      description: "Savings Bond and Wholesale Bond Series and their terms.",
+      description: "Bond series and their terms.",
     }),
   ) {}
 
@@ -100,10 +106,11 @@ export class Health extends Schema.Class<Health>("Health")({
 
 export class SystemApi extends HttpApiGroup.make("system")
   .add(
-    HttpApiEndpoint.get("health", "/health", { success: Health }).annotateMerge(
+    HttpApiEndpoint.get("health", "/health", {
+      success: Health.pipe(Schema.annotateEncoded({ examples: [healthExample] })),
+    }).annotateMerge(
       OpenApi.annotations({
-        description:
-          "What is served, and per source file where it came from and how the last download went.",
+        description: "What data is loaded, and how each source file's last download went.",
       }),
     ),
   )
@@ -129,7 +136,7 @@ export class Api extends HttpApi.make("polish-treasuries")
     OpenApi.annotations({
       title: "Polish Treasuries API",
       description:
-        "The terms of Polish Treasury Bonds and the inflation figures used to index them, as published by the Ministry of Finance of Poland in its spreadsheets.\n\nEvery read returns a list; when nothing matches, the list is empty. Decimals are strings and amounts are PLN. Add `.csv` or `.tsv` to any path to get the same data as a table.",
+        "Polish Treasury bond terms and the inflation index behind indexed bonds, from the Ministry of Finance spreadsheets.\n\nEvery endpoint returns a list, `[]` when nothing matches.\n\nAdd `.csv` or `.tsv` to any path to get the same data as a table.",
       version: "0.1.0",
       transform: tidyComponentNames,
     }),

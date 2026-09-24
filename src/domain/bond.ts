@@ -45,8 +45,8 @@ export const SeriesPrefix = Schema.Literals([
   ...WholesaleSeriesPrefix.literals,
 ]).annotate({
   identifier: "SeriesPrefix",
-  description: "The letters of a Series Name: `EDO` in `EDO0734`",
-  examples: ["EDO"],
+  description: "Initial letters of a series name",
+  examples: ["EDO", "IZ", "PS"],
 });
 export type SeriesPrefix = typeof SeriesPrefix.Type;
 
@@ -61,17 +61,14 @@ export const FixedCoupon = Schema.Struct({
   periodLength: Duration,
 }).annotate({ identifier: "FixedCoupon" });
 
-/** One announced Coupon Rate. Periods the Ministry has not announced are simply absent. */
+/** One announced Coupon Rate. Unannounced periods are absent. */
 export class PeriodCouponRate extends Schema.Class<PeriodCouponRate>("PeriodCouponRate")({
   /** 1-based: counted from the purchase day for a Savings Bond, as numbered in the file for a Wholesale Bond. */
   period: Schema.Int.check(Schema.isGreaterThanOrEqualTo(1)),
   rate: Decimal,
 }) {}
 
-/**
- * Coupon Rates announced one Coupon Period at a time. `rates` holds only what the Ministry has
- * announced; a missing period is Not Yet Announced (CONTEXT.md), never zero.
- */
+/** Coupon Rates announced one period at a time; a missing period is not yet announced, never zero. */
 const perPeriod = {
   schedule: Schema.Literal("per-period"),
   /**
@@ -115,7 +112,7 @@ export const FixedNominal = Schema.Struct({ indexation: Schema.Literal("none") }
   identifier: "FixedNominal",
 });
 
-/** The nominal is indexed to inflation from the Base Reference Index its letter of issue fixed (IZ). */
+/** The nominal is indexed to inflation from `baseReferenceIndex` (IZ). */
 export const IndexedNominal = Schema.Struct({
   indexation: Schema.Literal("inflation"),
   baseReferenceIndex: Decimal,
@@ -138,7 +135,7 @@ export class Sales extends Schema.Class<Sales>("Sales")({
   switched: Schema.OptionFromNullOr(Decimal),
 }) {}
 
-/** One month's sale of a Savings Bond (CONTEXT.md "Series"): sale terms and coupon. */
+/** One month's sale of a Savings Bond (CONTEXT.md "Series"). */
 export class SavingsBondSeries extends Schema.Class<SavingsBondSeries>("SavingsBondSeries")({
   family: Schema.Literal("savings"),
   series: SeriesName,
@@ -147,15 +144,14 @@ export class SavingsBondSeries extends Schema.Class<SavingsBondSeries>("SavingsB
   // Whether interest is added to the nominal each period comes from the letters of issue, not
   // the file; served once the letters are a source.
   // capitalises: Schema.Boolean,
-  /** Maturity as the Ministry states it: so long after the purchase day. */
+  /** Time from purchase to maturity. */
   tenor: Duration,
   saleWindow: SaleWindow,
   /** Per bond of nominal 100. */
   issuePrice: Decimal,
   /**
-   * Per bond of nominal 100, for a buyer switching from a maturing Series; absent when not offered.
-   * `swapPrice` would read more naturally, but "switching price" is the Ministry's own English for
-   * _cena zamiany_, so we keep theirs.
+   * Per bond of nominal 100, when switching from a maturing Series; absent when not offered.
+   * Named after the source's English for _cena zamiany_.
    */
   switchingPrice: Schema.OptionFromNullOr(Decimal),
   /** Absent while the Sale Window is open. */
@@ -165,7 +161,7 @@ export class SavingsBondSeries extends Schema.Class<SavingsBondSeries>("SavingsB
 }) {}
 
 export class DatedCouponPeriod extends Schema.Class<DatedCouponPeriod>("DatedCouponPeriod")({
-  /** 1-based, in the order the letter of issue lists them. */
+  /** 1-based. */
   period: Schema.Int.check(Schema.isGreaterThanOrEqualTo(1)),
   from: CalendarDate,
   to: CalendarDate,
@@ -173,17 +169,13 @@ export class DatedCouponPeriod extends Schema.Class<DatedCouponPeriod>("DatedCou
   paymentDate: CalendarDate,
 }) {}
 
-/** One Wholesale Bond Series (CONTEXT.md "Series"): its terms as the letter of issue fixed them. */
+/** One Wholesale Bond Series (CONTEXT.md "Series"). */
 export class WholesaleBondSeries extends Schema.Class<WholesaleBondSeries>("WholesaleBondSeries")({
   family: Schema.Literal("wholesale"),
   series: SeriesName,
   prefix: WholesaleSeriesPrefix,
   isin: Isin,
-  /**
-   * The day the bond was issued. Stated in the file only for IZ; for every other Series Prefix it
-   * is the first Coupon Period's first day — one of the few figures in this API not copied from a cell
-   * (see README).
-   */
+  /** Stated in the file only for IZ; otherwise the first Coupon Period's first day. */
   issueDate: CalendarDate,
   maturityDate: CalendarDate,
   nominal: WholesaleNominal,

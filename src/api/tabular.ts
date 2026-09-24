@@ -3,8 +3,8 @@ import type { Schema } from "effect";
 /**
  * A list of records as a spreadsheet would show it: one row per record, nested fields spread into
  * dotted columns (`saleWindow.from`), lists spread by position (`couponPeriods.1.from`) — or, for
- * lists of Coupon Periods, by the period number the Ministry announced them under
- * (`coupon.rates.3.rate`), so `/v1/bonds.csv?prefix=EDO` reads like the Ministry's EDO sheet.
+ * lists of Coupon Periods, by period number (`coupon.rates.3.rate`), so
+ * `/v1/bonds.csv?prefix=EDO` reads like the source's EDO sheet.
  * Columns appear in the order they are first seen; a record that lacks a column leaves it blank.
  */
 
